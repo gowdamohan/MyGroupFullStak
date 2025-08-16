@@ -46,11 +46,8 @@ echo "===================================="
 # Fix MySQL authentication
 print_status "Configuring MySQL users and database..."
 
-# Create SQL commands
-sudo mysql << 'EOF'
--- Fix root user authentication
-ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'MyGroup@2025';
-
+# Create SQL commands using root password
+mysql -u root -pMyGroup@2025 << 'EOF'
 -- Create application user
 DROP USER IF EXISTS 'appuser'@'localhost';
 CREATE USER 'appuser'@'localhost' IDENTIFIED BY 'MyGroup@2025';
