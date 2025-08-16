@@ -1,6 +1,9 @@
 console.log("Starting server initialization...");
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
+import fileUpload from "express-fileupload";
+import path from "path";
+import fs from "fs";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 console.log("Imports loaded successfully");
@@ -8,6 +11,32 @@ console.log("Imports loaded successfully");
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// Create uploads directory if it doesn't exist
+const uploadsDir = path.join(process.cwd(), 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Create assets directory structure
+const assetsDir = path.join(uploadsDir, 'assets');
+const appAssetsDir = path.join(assetsDir, 'App');
+if (!fs.existsSync(appAssetsDir)) {
+  fs.mkdirSync(appAssetsDir, { recursive: true });
+}
+
+// File upload middleware
+app.use(fileUpload({
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB max file size
+  useTempFiles: true,
+  tempFileDir: path.join(uploadsDir, 'temp'),
+  createParentPath: true,
+  abortOnLimit: true,
+  responseOnLimit: "File size limit exceeded",
+}));
+
+// Serve uploaded files statically
+app.use('/uploads', express.static(uploadsDir));
 
 // Session configuration
 app.use(session({

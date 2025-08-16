@@ -1,15 +1,31 @@
 import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { z } from "zod";
+import path from "path";
+import fs from "fs";
 import { storage } from "./storage";
 import { mysqlStorage } from "./mysql-storage";
-import { loginSchema, adminLoginSchema, registrationSchema } from "@shared/schema";
+import {
+  loginSchema,
+  adminLoginSchema,
+  registrationSchema,
+  groupCreateSchema,
+  createDetailsSchema,
+  changePasswordSchema
+} from "@shared/schema";
 
 // Extend Express Request type to include session
 declare module 'express-session' {
   interface SessionData {
     userId?: string;
     userRole?: string;
+  }
+}
+
+// Extend Express Request type to include files from express-fileupload
+declare module 'express' {
+  interface Request {
+    files?: any;
   }
 }
 
@@ -227,6 +243,354 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Registration error:", error);
       res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // ===== PROFILE MANAGEMENT API ROUTES =====
+
+  // Group Management Routes (using group_create table)
+  app.get("/api/admin/groups", async (req, res) => {
+    try {
+      // Check admin authentication
+      if (!req.session.userId || req.session.userRole !== 'admin') {
+        return res.status(401).json({ error: "Admin authentication required" });
+      }
+
+      const groups = await mysqlStorage.getAllGroups();
+      res.json(groups);
+    } catch (error) {
+      console.error("Error fetching groups:", error);
+      res.status(500).json({ error: "Failed to fetch groups" });
+    }
+  });
+
+  app.post("/api/admin/groups", async (req, res) => {
+    try {
+      // Check admin authentication
+      if (!req.session.userId || req.session.userRole !== 'admin') {
+        return res.status(401).json({ error: "Admin authentication required" });
+      }
+
+      const groupData = groupCreateSchema.parse(req.body);
+      const newGroup = await mysqlStorage.createGroup(groupData);
+      res.status(201).json(newGroup);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors[0].message });
+      }
+      console.error("Error creating group:", error);
+      res.status(500).json({ error: "Failed to create group" });
+    }
+  });
+
+  app.put("/api/admin/groups/:id", async (req, res) => {
+    try {
+      // Check admin authentication
+      if (!req.session.userId || req.session.userRole !== 'admin') {
+        return res.status(401).json({ error: "Admin authentication required" });
+      }
+
+      const groupId = parseInt(req.params.id);
+      const groupData = groupCreateSchema.parse(req.body);
+      const updatedGroup = await mysqlStorage.updateGroup(groupId, groupData);
+
+      if (!updatedGroup) {
+        return res.status(404).json({ error: "Group not found" });
+      }
+
+      res.json(updatedGroup);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors[0].message });
+      }
+      console.error("Error updating group:", error);
+      res.status(500).json({ error: "Failed to update group" });
+    }
+  });
+
+  app.delete("/api/admin/groups/:id", async (req, res) => {
+    try {
+      // Check admin authentication
+      if (!req.session.userId || req.session.userRole !== 'admin') {
+        return res.status(401).json({ error: "Admin authentication required" });
+      }
+
+      const groupId = parseInt(req.params.id);
+      const deleted = await mysqlStorage.deleteGroup(groupId);
+
+      if (!deleted) {
+        return res.status(404).json({ error: "Group not found" });
+      }
+
+      res.json({ message: "Group deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting group:", error);
+      res.status(500).json({ error: "Failed to delete group" });
+    }
+  });
+
+  // App Create Routes (using group_create and create_details tables)
+  app.get("/api/admin/app-create", async (req, res) => {
+    try {
+      // Check admin authentication
+      if (!req.session.userId || req.session.userRole !== 'admin') {
+        return res.status(401).json({ error: "Admin authentication required" });
+      }
+
+      const apps = await mysqlStorage.getAllAppsWithDetails();
+      res.json(apps);
+    } catch (error) {
+      console.error("Error fetching apps:", error);
+      res.status(500).json({ error: "Failed to fetch apps" });
+    }
+  });
+
+  app.post("/api/admin/app-create", async (req, res) => {
+    try {
+      // Check admin authentication
+      if (!req.session.userId || req.session.userRole !== 'admin') {
+        return res.status(401).json({ error: "Admin authentication required" });
+      }
+
+      const { groupData, detailsData } = req.body;
+
+      // Validate group data
+      const validatedGroupData = groupCreateSchema.parse(groupData);
+
+      // Create the group first
+      const newGroup = await mysqlStorage.createGroup(validatedGroupData);
+
+      // If details data is provided, create details
+      if (detailsData) {
+        const validatedDetailsData = createDetailsSchema.parse({
+          ...detailsData,
+          createId: newGroup.id
+        });
+        await mysqlStorage.createAppDetails(validatedDetailsData);
+      }
+
+      // Return the complete app with details
+      const completeApp = await mysqlStorage.getAppWithDetails(newGroup.id);
+      res.status(201).json(completeApp);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors[0].message });
+      }
+      console.error("Error creating app:", error);
+      res.status(500).json({ error: "Failed to create app" });
+    }
+  });
+
+  // App Account Routes (user management for apps)
+  app.get("/api/admin/app-accounts", async (req, res) => {
+    try {
+      // Check admin authentication
+      if (!req.session.userId || req.session.userRole !== 'admin') {
+        return res.status(401).json({ error: "Admin authentication required" });
+      }
+
+      const accounts = await mysqlStorage.getAllAppAccounts();
+      // console.error("Fetching app accounts:", accounts);
+      res.json(accounts);
+    } catch (error) {
+      console.error("Error fetching app accounts:", error);
+      res.status(500).json({ error: "Failed to fetch app accounts" });
+    }
+  });
+
+  app.post("/api/admin/app-accounts", async (req, res) => {
+    try {
+      // Check admin authentication
+      if (!req.session.userId || req.session.userRole !== 'admin') {
+        return res.status(401).json({ error: "Admin authentication required" });
+      }
+
+      const { username, password, appId } = req.body;
+
+      // Validate required fields
+      if (!username || !password || !appId) {
+        return res.status(400).json({ error: "Username, password, and app ID are required" });
+      }
+
+      // Create user account for the app
+      const newAccount = await mysqlStorage.createAppAccount({
+        username,
+        password,
+        appId: parseInt(appId),
+        email: `${username}@mygroup.com`, // Generate email
+        ipAddress: req.ip || '127.0.0.1'
+      });
+
+      res.status(201).json(newAccount);
+    } catch (error) {
+      console.error("Error creating app account:", error);
+      res.status(500).json({ error: "Failed to create app account" });
+    }
+  });
+
+  app.delete("/api/admin/app-accounts/:id", async (req, res) => {
+    try {
+      // Check admin authentication
+      if (!req.session.userId || req.session.userRole !== 'admin') {
+        return res.status(401).json({ error: "Admin authentication required" });
+      }
+
+      const accountId = parseInt(req.params.id);
+      const deleted = await mysqlStorage.deleteAppAccount(accountId);
+
+      if (!deleted) {
+        return res.status(404).json({ error: "Account not found" });
+      }
+
+      res.json({ message: "Account deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting app account:", error);
+      res.status(500).json({ error: "Failed to delete app account" });
+    }
+  });
+
+  // Change Password Route
+  app.post("/api/admin/change-password", async (req, res) => {
+    try {
+      // Check admin authentication
+      if (!req.session.userId || req.session.userRole !== 'admin') {
+        return res.status(401).json({ error: "Admin authentication required" });
+      }
+
+      const passwordData = changePasswordSchema.parse(req.body);
+      const userId = parseInt(req.session.userId);
+
+      // Verify old password
+      const user = await mysqlStorage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const isValidOldPassword = await mysqlStorage.verifyPassword(passwordData.oldPassword, user.password);
+      if (!isValidOldPassword) {
+        return res.status(400).json({ error: "Current password is incorrect" });
+      }
+
+      // Update password
+      const updated = await mysqlStorage.updateUserPassword(userId, passwordData.newPassword);
+      if (!updated) {
+        return res.status(500).json({ error: "Failed to update password" });
+      }
+
+      res.json({ message: "Password updated successfully" });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors[0].message });
+      }
+      console.error("Error changing password:", error);
+      res.status(500).json({ error: "Failed to change password" });
+    }
+  });
+
+  // ===== FILE UPLOAD API ROUTES =====
+
+  // File upload route for profile assets
+  app.post("/api/admin/upload", async (req, res) => {
+    try {
+      // Check admin authentication
+      if (!req.session.userId || req.session.userRole !== 'admin') {
+        return res.status(401).json({ error: "Admin authentication required" });
+      }
+
+      if (!req.files || Object.keys(req.files).length === 0) {
+        return res.status(400).json({ error: "No files were uploaded" });
+      }
+
+      const uploadedFiles: any[] = [];
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+      const maxSize = 5 * 1024 * 1024; // 5MB
+
+      // Process each uploaded file
+      for (const [fieldName, file] of Object.entries(req.files)) {
+        const uploadedFile = Array.isArray(file) ? file[0] : file as any;
+
+        // Validate file type
+        if (!allowedTypes.includes(uploadedFile.mimetype)) {
+          return res.status(400).json({
+            error: `Invalid file type for ${fieldName}. Allowed types: ${allowedTypes.join(', ')}`
+          });
+        }
+
+        // Validate file size
+        if (uploadedFile.size > maxSize) {
+          return res.status(400).json({
+            error: `File ${fieldName} is too large. Maximum size: ${maxSize / (1024 * 1024)}MB`
+          });
+        }
+
+        // Generate unique filename
+        const timestamp = Date.now();
+        const extension = path.extname(uploadedFile.name);
+        const filename = `${fieldName}_${timestamp}${extension}`;
+
+        // Determine upload path based on field name
+        let uploadPath: string;
+        if (['icon', 'logo', 'nameImage', 'banner'].includes(fieldName)) {
+          uploadPath = path.join(process.cwd(), 'uploads', 'assets', 'App', filename);
+        } else {
+          uploadPath = path.join(process.cwd(), 'uploads', filename);
+        }
+
+        // Move file to destination
+        await uploadedFile.mv(uploadPath);
+
+        // Generate URL for the uploaded file
+        const fileUrl = `/uploads/${fieldName === 'icon' || fieldName === 'logo' || fieldName === 'nameImage' || fieldName === 'banner' ? 'assets/App/' : ''}${filename}`;
+
+        uploadedFiles.push({
+          fieldName,
+          originalName: uploadedFile.name,
+          filename,
+          url: fileUrl,
+          size: uploadedFile.size,
+          mimetype: uploadedFile.mimetype
+        });
+      }
+
+      res.json({
+        message: "Files uploaded successfully",
+        files: uploadedFiles
+      });
+    } catch (error) {
+      console.error("Error uploading files:", error);
+      res.status(500).json({ error: "Failed to upload files" });
+    }
+  });
+
+  // Delete uploaded file route
+  app.delete("/api/admin/upload/:filename", async (req, res) => {
+    try {
+      // Check admin authentication
+      if (!req.session.userId || req.session.userRole !== 'admin') {
+        return res.status(401).json({ error: "Admin authentication required" });
+      }
+
+      const filename = req.params.filename;
+      const { folder } = req.query;
+
+      // Construct file path
+      let filePath: string;
+      if (folder === 'app') {
+        filePath = path.join(process.cwd(), 'uploads', 'assets', 'App', filename);
+      } else {
+        filePath = path.join(process.cwd(), 'uploads', filename);
+      }
+
+      // Check if file exists and delete it
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        res.json({ message: "File deleted successfully" });
+      } else {
+        res.status(404).json({ error: "File not found" });
+      }
+    } catch (error) {
+      console.error("Error deleting file:", error);
+      res.status(500).json({ error: "Failed to delete file" });
     }
   });
 

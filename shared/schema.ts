@@ -44,6 +44,27 @@ export const usersGroups = mysqlTable("users_groups", {
   groupId: int("group_id").notNull(),
 });
 
+// Existing group_create table (matches database structure)
+export const groupCreate = mysqlTable("group_create", {
+  id: int("id").primaryKey().autoincrement(),
+  name: varchar("name", { length: 255 }),
+  appsName: varchar("apps_name", { length: 255 }),
+  orderBy: int("order_by"),
+  code: varchar("code", { length: 45 }),
+});
+
+// Existing create_details table (matches database structure)
+export const createDetails = mysqlTable("create_details", {
+  id: int("id").primaryKey().autoincrement(),
+  createId: int("create_id"),
+  icon: varchar("icon", { length: 255 }),
+  logo: varchar("logo", { length: 255 }),
+  nameImage: varchar("name_image", { length: 255 }),
+  backgroundColor: varchar("background_color", { length: 255 }),
+  banner: varchar("banner", { length: 255 }),
+  url: varchar("url", { length: 255 }),
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdOn: true,
@@ -73,9 +94,51 @@ export const registrationSchema = z.object({
   path: ["confirmPassword"],
 });
 
+// Group create schema (for existing table)
+export const groupCreateSchema = z.object({
+  name: z.string().min(1, "Group name is required"),
+  appsName: z.string().min(1, "App name is required"),
+  orderBy: z.number().optional(),
+  code: z.string().optional(),
+});
+
+export const insertGroupCreateSchema = createInsertSchema(groupCreate).omit({
+  id: true,
+});
+
+// Create details schema (for existing table)
+export const createDetailsSchema = z.object({
+  createId: z.number().min(1, "Create ID is required"),
+  icon: z.string().optional(),
+  logo: z.string().optional(),
+  nameImage: z.string().optional(),
+  backgroundColor: z.string().optional(),
+  banner: z.string().optional(),
+  url: z.string().optional(),
+});
+
+export const insertCreateDetailsSchema = createInsertSchema(createDetails).omit({
+  id: true,
+});
+
+// Change password schema
+export const changePasswordSchema = z.object({
+  oldPassword: z.string().min(1, "Old password is required"),
+  newPassword: z.string().min(8, "New password must be at least 8 characters"),
+  confirmPassword: z.string().min(1, "Confirm password is required"),
+}).refine((data) => data.newPassword === data.confirmPassword, {
+  message: "New passwords don't match",
+  path: ["confirmPassword"],
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type Group = typeof groups.$inferSelect;
+export type GroupCreate = typeof groupCreate.$inferSelect;
+export type CreateDetails = typeof createDetails.$inferSelect;
 export type Login = z.infer<typeof loginSchema>;
 export type AdminLogin = z.infer<typeof adminLoginSchema>;
 export type Registration = z.infer<typeof registrationSchema>;
+export type GroupCreateInput = z.infer<typeof groupCreateSchema>;
+export type CreateDetailsInput = z.infer<typeof createDetailsSchema>;
+export type ChangePassword = z.infer<typeof changePasswordSchema>;
