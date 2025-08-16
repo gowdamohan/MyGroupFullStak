@@ -7,12 +7,28 @@ import {
   usersGroups,
   groupCreate,
   createDetails,
+  continentTbl,
+  countryTbl,
+  stateTbl,
+  districtTbl,
   type User,
   type InsertUser,
   type GroupCreate,
   type CreateDetails,
   type GroupCreateInput,
-  type CreateDetailsInput
+  type CreateDetailsInput,
+  type Continent,
+  type InsertContinent,
+  type Country,
+  type InsertCountry,
+  type State,
+  type InsertState,
+  type District,
+  type InsertDistrict,
+  type ContinentInput,
+  type CountryInput,
+  type StateInput,
+  type DistrictInput
 } from "@shared/schema";
 import bcrypt from "bcryptjs";
 import { dbConfig } from "./mysql-connection.js";
@@ -401,6 +417,328 @@ export class MySQLStorage implements IMySQLStorage {
       return (result as any).affectedRows > 0;
     } catch (error) {
       console.error("Error updating user password:", error);
+      throw error;
+    }
+  }
+
+  // Content Management Methods
+
+  // Continent Methods
+  async getAllContinents(): Promise<any[]> {
+    try {
+      const result = await db.select().from(continentTbl).orderBy(continentTbl.continent);
+      return result;
+    } catch (error) {
+      console.error("Error fetching continents:", error);
+      throw error;
+    }
+  }
+
+  async getContinentById(id: number): Promise<any | null> {
+    try {
+      const result = await db.select().from(continentTbl).where(eq(continentTbl.id, id)).limit(1);
+      return result[0] || null;
+    } catch (error) {
+      console.error("Error fetching continent by ID:", error);
+      throw error;
+    }
+  }
+
+  async createContinent(continentData: ContinentInput): Promise<Continent> {
+    try {
+      const [result] = await db.insert(continentTbl).values(continentData);
+      const newContinent = await db.select().from(continentTbl).where(eq(continentTbl.id, result.insertId)).limit(1);
+      return newContinent[0];
+    } catch (error) {
+      console.error("Error creating continent:", error);
+      throw error;
+    }
+  }
+
+  async updateContinent(id: number, continentData: Partial<ContinentInput>): Promise<Continent | null> {
+    try {
+      await db.update(continentTbl).set(continentData).where(eq(continentTbl.id, id));
+      const updatedContinent = await db.select().from(continentTbl).where(eq(continentTbl.id, id)).limit(1);
+      return updatedContinent[0] || null;
+    } catch (error) {
+      console.error("Error updating continent:", error);
+      throw error;
+    }
+  }
+
+  async deleteContinent(id: number): Promise<boolean> {
+    try {
+      const [result] = await connection.execute('DELETE FROM continent_tbl WHERE id = ?', [id]);
+      return (result as any).affectedRows > 0;
+    } catch (error) {
+      console.error("Error deleting continent:", error);
+      throw error;
+    }
+  }
+
+  // Country Methods
+  async getAllCountries(): Promise<any[]> {
+    try {
+      const query = `
+        SELECT
+          c.*,
+          cont.continent as continent_name
+        FROM country_tbl c
+        LEFT JOIN continent_tbl cont ON c.continent_id = cont.id
+        ORDER BY c.country
+      `;
+      const [rows] = await connection.execute(query);
+      return rows as any[];
+    } catch (error) {
+      console.error("Error fetching countries:", error);
+      throw error;
+    }
+  }
+
+  async getCountryById(id: number): Promise<any | null> {
+    try {
+      const query = `
+        SELECT
+          c.*,
+          cont.continent as continent_name
+        FROM country_tbl c
+        LEFT JOIN continent_tbl cont ON c.continent_id = cont.id
+        WHERE c.id = ?
+      `;
+      const [rows] = await connection.execute(query, [id]);
+      return (rows as any[])[0] || null;
+    } catch (error) {
+      console.error("Error fetching country by ID:", error);
+      throw error;
+    }
+  }
+
+  async getCountriesByContinent(continentId: number): Promise<Country[]> {
+    try {
+      const result = await db.select().from(countryTbl).where(eq(countryTbl.continentId, continentId)).orderBy(countryTbl.country);
+      return result;
+    } catch (error) {
+      console.error("Error fetching countries by continent:", error);
+      throw error;
+    }
+  }
+
+  async createCountry(countryData: CountryInput): Promise<Country> {
+    try {
+      const [result] = await db.insert(countryTbl).values(countryData);
+      const newCountry = await db.select().from(countryTbl).where(eq(countryTbl.id, result.insertId)).limit(1);
+      return newCountry[0];
+    } catch (error) {
+      console.error("Error creating country:", error);
+      throw error;
+    }
+  }
+
+  async updateCountry(id: number, countryData: Partial<CountryInput>): Promise<Country | null> {
+    try {
+      await db.update(countryTbl).set(countryData).where(eq(countryTbl.id, id));
+      const updatedCountry = await db.select().from(countryTbl).where(eq(countryTbl.id, id)).limit(1);
+      return updatedCountry[0] || null;
+    } catch (error) {
+      console.error("Error updating country:", error);
+      throw error;
+    }
+  }
+
+  async deleteCountry(id: number): Promise<boolean> {
+    try {
+      const [result] = await connection.execute('DELETE FROM country_tbl WHERE id = ?', [id]);
+      return (result as any).affectedRows > 0;
+    } catch (error) {
+      console.error("Error deleting country:", error);
+      throw error;
+    }
+  }
+
+  // State Methods
+  async getAllStates(): Promise<any[]> {
+    try {
+      const query = `
+        SELECT
+          s.*,
+          c.country as country_name,
+          cont.continent as continent_name
+        FROM state_tbl s
+        LEFT JOIN country_tbl c ON s.country_id = c.id
+        LEFT JOIN continent_tbl cont ON c.continent_id = cont.id
+        ORDER BY s.state
+      `;
+      const [rows] = await connection.execute(query);
+      return rows as any[];
+    } catch (error) {
+      console.error("Error fetching states:", error);
+      throw error;
+    }
+  }
+
+  async getStateById(id: number): Promise<any | null> {
+    try {
+      const query = `
+        SELECT
+          s.*,
+          c.country as country_name,
+          cont.continent as continent_name
+        FROM state_tbl s
+        LEFT JOIN country_tbl c ON s.country_id = c.id
+        LEFT JOIN continent_tbl cont ON c.continent_id = cont.id
+        WHERE s.id = ?
+      `;
+      const [rows] = await connection.execute(query, [id]);
+      return (rows as any[])[0] || null;
+    } catch (error) {
+      console.error("Error fetching state by ID:", error);
+      throw error;
+    }
+  }
+
+  async getStatesByCountry(countryId: number): Promise<State[]> {
+    try {
+      const result = await db.select().from(stateTbl).where(eq(stateTbl.countryId, countryId)).orderBy(stateTbl.state);
+      return result;
+    } catch (error) {
+      console.error("Error fetching states by country:", error);
+      throw error;
+    }
+  }
+
+  async createState(stateData: StateInput): Promise<State> {
+    try {
+      const [result] = await db.insert(stateTbl).values(stateData);
+      const newState = await db.select().from(stateTbl).where(eq(stateTbl.id, result.insertId)).limit(1);
+      return newState[0];
+    } catch (error) {
+      console.error("Error creating state:", error);
+      throw error;
+    }
+  }
+
+  async updateState(id: number, stateData: Partial<StateInput>): Promise<State | null> {
+    try {
+      await db.update(stateTbl).set(stateData).where(eq(stateTbl.id, id));
+      const updatedState = await db.select().from(stateTbl).where(eq(stateTbl.id, id)).limit(1);
+      return updatedState[0] || null;
+    } catch (error) {
+      console.error("Error updating state:", error);
+      throw error;
+    }
+  }
+
+  async deleteState(id: number): Promise<boolean> {
+    try {
+      const [result] = await connection.execute('DELETE FROM state_tbl WHERE id = ?', [id]);
+      return (result as any).affectedRows > 0;
+    } catch (error) {
+      console.error("Error deleting state:", error);
+      throw error;
+    }
+  }
+
+  // District Methods
+  async getAllDistricts(): Promise<any[]> {
+    try {
+      const query = `
+        SELECT
+          d.*,
+          s.state as state_name,
+          c.country as country_name,
+          cont.continent as continent_name
+        FROM district_tbl d
+        LEFT JOIN state_tbl s ON d.state_id = s.id
+        LEFT JOIN country_tbl c ON s.country_id = c.id
+        LEFT JOIN continent_tbl cont ON c.continent_id = cont.id
+        ORDER BY d.district
+      `;
+      const [rows] = await connection.execute(query);
+      return rows as any[];
+    } catch (error) {
+      console.error("Error fetching districts:", error);
+      throw error;
+    }
+  }
+
+  async getDistrictById(id: number): Promise<any | null> {
+    try {
+      const query = `
+        SELECT
+          d.*,
+          s.state as state_name,
+          c.country as country_name,
+          cont.continent as continent_name
+        FROM district_tbl d
+        LEFT JOIN state_tbl s ON d.state_id = s.id
+        LEFT JOIN country_tbl c ON s.country_id = c.id
+        LEFT JOIN continent_tbl cont ON c.continent_id = cont.id
+        WHERE d.id = ?
+      `;
+      const [rows] = await connection.execute(query, [id]);
+      return (rows as any[])[0] || null;
+    } catch (error) {
+      console.error("Error fetching district by ID:", error);
+      throw error;
+    }
+  }
+
+  async getDistrictsByState(stateId: number): Promise<District[]> {
+    try {
+      const result = await db.select().from(districtTbl).where(eq(districtTbl.stateId, stateId)).orderBy(districtTbl.district);
+      return result;
+    } catch (error) {
+      console.error("Error fetching districts by state:", error);
+      throw error;
+    }
+  }
+
+  async getDistrictsByCountry(countryId: number): Promise<District[]> {
+    try {
+      // Get districts by country through state relationship
+      const query = `
+        SELECT d.*
+        FROM district_tbl d
+        INNER JOIN state_tbl s ON d.state_id = s.id
+        WHERE s.country_id = ?
+        ORDER BY d.district
+      `;
+      const [rows] = await connection.execute(query, [countryId]);
+      return rows as District[];
+    } catch (error) {
+      console.error("Error fetching districts by country:", error);
+      throw error;
+    }
+  }
+
+  async createDistrict(districtData: DistrictInput): Promise<District> {
+    try {
+      const [result] = await db.insert(districtTbl).values(districtData);
+      const newDistrict = await db.select().from(districtTbl).where(eq(districtTbl.id, result.insertId)).limit(1);
+      return newDistrict[0];
+    } catch (error) {
+      console.error("Error creating district:", error);
+      throw error;
+    }
+  }
+
+  async updateDistrict(id: number, districtData: Partial<DistrictInput>): Promise<District | null> {
+    try {
+      await db.update(districtTbl).set(districtData).where(eq(districtTbl.id, id));
+      const updatedDistrict = await db.select().from(districtTbl).where(eq(districtTbl.id, id)).limit(1);
+      return updatedDistrict[0] || null;
+    } catch (error) {
+      console.error("Error updating district:", error);
+      throw error;
+    }
+  }
+
+  async deleteDistrict(id: number): Promise<boolean> {
+    try {
+      const [result] = await connection.execute('DELETE FROM district_tbl WHERE id = ?', [id]);
+      return (result as any).affectedRows > 0;
+    } catch (error) {
+      console.error("Error deleting district:", error);
       throw error;
     }
   }

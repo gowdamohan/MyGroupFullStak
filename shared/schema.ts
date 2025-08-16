@@ -131,6 +131,82 @@ export const changePasswordSchema = z.object({
   path: ["confirmPassword"],
 });
 
+// Content Management Tables
+export const continentTbl = mysqlTable("continent_tbl", {
+  id: int("id").primaryKey().autoincrement(),
+  continent: varchar("continent", { length: 100 }),
+  code: varchar("code", { length: 45 }),
+  order: int("order"),
+  status: tinyint("status").default(1),
+});
+
+export const countryTbl = mysqlTable("country_tbl", {
+  id: int("id").primaryKey().autoincrement(),
+  continentId: int("continent_id"),
+  country: varchar("country", { length: 100 }),
+  order: tinyint("order"),
+  status: tinyint("status"),
+  code: varchar("code", { length: 45 }),
+  currency: varchar("currency", { length: 45 }),
+  countryFlag: text("country_flag"),
+  phoneCode: varchar("phone_code", { length: 100 }),
+  nationality: varchar("nationality", { length: 100 }),
+});
+
+export const stateTbl = mysqlTable("state_tbl", {
+  id: int("id").primaryKey().autoincrement(),
+  state: varchar("state", { length: 100 }),
+  countryId: int("country_id"),
+  order: tinyint("order"),
+  status: tinyint("status"),
+  code: varchar("code", { length: 45 }),
+});
+
+export const districtTbl = mysqlTable("district_tbl", {
+  id: int("id").primaryKey().autoincrement(),
+  stateId: int("state_id"),
+  district: varchar("district", { length: 100 }),
+  order: tinyint("order"),
+  status: tinyint("status"),
+  code: varchar("code", { length: 45 }),
+});
+
+// Content Management Schemas
+export const continentSchema = z.object({
+  continent: z.string().min(1, "Continent name is required"),
+  code: z.string().min(1, "Continent code is required").max(45),
+  order: z.number().default(0),
+  status: z.number().default(1),
+});
+
+export const countrySchema = z.object({
+  continentId: z.number().min(1, "Continent is required"),
+  country: z.string().min(1, "Country name is required"),
+  order: z.number().default(0),
+  status: z.number().default(1),
+  code: z.string().min(1, "Country code is required").max(45),
+  currency: z.string().optional(),
+  countryFlag: z.string().optional(),
+  phoneCode: z.string().optional(),
+  nationality: z.string().optional(),
+});
+
+export const stateSchema = z.object({
+  countryId: z.number().min(1, "Country is required"),
+  state: z.string().min(1, "State name is required"),
+  order: z.number().default(0),
+  status: z.number().default(1),
+  code: z.string().min(1, "State code is required").max(45),
+});
+
+export const districtSchema = z.object({
+  stateId: z.number().min(1, "State is required"),
+  district: z.string().min(1, "District name is required"),
+  order: z.number().default(0),
+  status: z.number().default(1),
+  code: z.string().min(1, "District code is required").max(45),
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type Group = typeof groups.$inferSelect;
@@ -142,3 +218,18 @@ export type Registration = z.infer<typeof registrationSchema>;
 export type GroupCreateInput = z.infer<typeof groupCreateSchema>;
 export type CreateDetailsInput = z.infer<typeof createDetailsSchema>;
 export type ChangePassword = z.infer<typeof changePasswordSchema>;
+
+// Content Management Types
+export type Continent = typeof continentTbl.$inferSelect;
+export type InsertContinent = typeof continentTbl.$inferInsert;
+export type Country = typeof countryTbl.$inferSelect;
+export type InsertCountry = typeof countryTbl.$inferInsert;
+export type State = typeof stateTbl.$inferSelect;
+export type InsertState = typeof stateTbl.$inferInsert;
+export type District = typeof districtTbl.$inferSelect;
+export type InsertDistrict = typeof districtTbl.$inferInsert;
+
+export type ContinentInput = z.infer<typeof continentSchema>;
+export type CountryInput = z.infer<typeof countrySchema>;
+export type StateInput = z.infer<typeof stateSchema>;
+export type DistrictInput = z.infer<typeof districtSchema>;

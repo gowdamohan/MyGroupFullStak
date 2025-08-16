@@ -11,7 +11,11 @@ import {
   registrationSchema,
   groupCreateSchema,
   createDetailsSchema,
-  changePasswordSchema
+  changePasswordSchema,
+  continentSchema,
+  countrySchema,
+  stateSchema,
+  districtSchema
 } from "@shared/schema";
 
 // Extend Express Request type to include session
@@ -683,6 +687,360 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating demo users:", error);
       res.status(500).json({ error: "Failed to create demo users" });
+    }
+  });
+
+  // ===== CONTENT MANAGEMENT API ROUTES =====
+
+  // Continent Routes
+  app.get("/api/admin/continents", requireAdmin, async (req, res) => {
+    try {
+      const continents = await mysqlStorage.getAllContinents();
+      res.json(continents);
+    } catch (error) {
+      console.error("Error fetching continents:", error);
+      res.status(500).json({ error: "Failed to fetch continents" });
+    }
+  });
+
+  app.get("/api/admin/continents/:id", requireAdmin, async (req, res) => {
+    try {
+      const continentId = parseInt(req.params.id);
+      const continent = await mysqlStorage.getContinentById(continentId);
+
+      if (!continent) {
+        return res.status(404).json({ error: "Continent not found" });
+      }
+
+      res.json(continent);
+    } catch (error) {
+      console.error("Error fetching continent:", error);
+      res.status(500).json({ error: "Failed to fetch continent" });
+    }
+  });
+
+  app.post("/api/admin/continents", requireAdmin, async (req, res) => {
+    try {
+      const continentData = continentSchema.parse(req.body);
+      const newContinent = await mysqlStorage.createContinent(continentData);
+      res.status(201).json(newContinent);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors[0].message });
+      }
+      console.error("Error creating continent:", error);
+      res.status(500).json({ error: "Failed to create continent" });
+    }
+  });
+
+  app.put("/api/admin/continents/:id", requireAdmin, async (req, res) => {
+    try {
+      const continentId = parseInt(req.params.id);
+      const continentData = continentSchema.parse(req.body);
+      const updatedContinent = await mysqlStorage.updateContinent(continentId, continentData);
+
+      if (!updatedContinent) {
+        return res.status(404).json({ error: "Continent not found" });
+      }
+
+      res.json(updatedContinent);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors[0].message });
+      }
+      console.error("Error updating continent:", error);
+      res.status(500).json({ error: "Failed to update continent" });
+    }
+  });
+
+  app.delete("/api/admin/continents/:id", requireAdmin, async (req, res) => {
+    try {
+      const continentId = parseInt(req.params.id);
+      const deleted = await mysqlStorage.deleteContinent(continentId);
+
+      if (!deleted) {
+        return res.status(404).json({ error: "Continent not found" });
+      }
+
+      res.json({ message: "Continent deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting continent:", error);
+      res.status(500).json({ error: "Failed to delete continent" });
+    }
+  });
+
+  // Country Routes
+  app.get("/api/admin/countries", requireAdmin, async (req, res) => {
+    try {
+      const countries = await mysqlStorage.getAllCountries();
+      res.json(countries);
+    } catch (error) {
+      console.error("Error fetching countries:", error);
+      res.status(500).json({ error: "Failed to fetch countries" });
+    }
+  });
+
+  app.get("/api/admin/countries/:id", requireAdmin, async (req, res) => {
+    try {
+      const countryId = parseInt(req.params.id);
+      const country = await mysqlStorage.getCountryById(countryId);
+
+      if (!country) {
+        return res.status(404).json({ error: "Country not found" });
+      }
+
+      res.json(country);
+    } catch (error) {
+      console.error("Error fetching country:", error);
+      res.status(500).json({ error: "Failed to fetch country" });
+    }
+  });
+
+  app.get("/api/admin/countries/by-continent/:continentId", requireAdmin, async (req, res) => {
+    try {
+      const continentId = parseInt(req.params.continentId);
+      const countries = await mysqlStorage.getCountriesByContinent(continentId);
+      res.json(countries);
+    } catch (error) {
+      console.error("Error fetching countries by continent:", error);
+      res.status(500).json({ error: "Failed to fetch countries" });
+    }
+  });
+
+  app.post("/api/admin/countries", requireAdmin, async (req, res) => {
+    try {
+      const countryData = countrySchema.parse(req.body);
+      const newCountry = await mysqlStorage.createCountry(countryData);
+      res.status(201).json(newCountry);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors[0].message });
+      }
+      console.error("Error creating country:", error);
+      res.status(500).json({ error: "Failed to create country" });
+    }
+  });
+
+  app.put("/api/admin/countries/:id", requireAdmin, async (req, res) => {
+    try {
+      const countryId = parseInt(req.params.id);
+      const countryData = countrySchema.parse(req.body);
+      const updatedCountry = await mysqlStorage.updateCountry(countryId, countryData);
+
+      if (!updatedCountry) {
+        return res.status(404).json({ error: "Country not found" });
+      }
+
+      res.json(updatedCountry);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors[0].message });
+      }
+      console.error("Error updating country:", error);
+      res.status(500).json({ error: "Failed to update country" });
+    }
+  });
+
+  app.delete("/api/admin/countries/:id", requireAdmin, async (req, res) => {
+    try {
+      const countryId = parseInt(req.params.id);
+      const deleted = await mysqlStorage.deleteCountry(countryId);
+
+      if (!deleted) {
+        return res.status(404).json({ error: "Country not found" });
+      }
+
+      res.json({ message: "Country deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting country:", error);
+      res.status(500).json({ error: "Failed to delete country" });
+    }
+  });
+
+  // State Routes
+  app.get("/api/admin/states", requireAdmin, async (req, res) => {
+    try {
+      const states = await mysqlStorage.getAllStates();
+      res.json(states);
+    } catch (error) {
+      console.error("Error fetching states:", error);
+      res.status(500).json({ error: "Failed to fetch states" });
+    }
+  });
+
+  app.get("/api/admin/states/:id", requireAdmin, async (req, res) => {
+    try {
+      const stateId = parseInt(req.params.id);
+      const state = await mysqlStorage.getStateById(stateId);
+
+      if (!state) {
+        return res.status(404).json({ error: "State not found" });
+      }
+
+      res.json(state);
+    } catch (error) {
+      console.error("Error fetching state:", error);
+      res.status(500).json({ error: "Failed to fetch state" });
+    }
+  });
+
+  app.get("/api/admin/states/by-country/:countryId", requireAdmin, async (req, res) => {
+    try {
+      const countryId = parseInt(req.params.countryId);
+      const states = await mysqlStorage.getStatesByCountry(countryId);
+      res.json(states);
+    } catch (error) {
+      console.error("Error fetching states by country:", error);
+      res.status(500).json({ error: "Failed to fetch states" });
+    }
+  });
+
+  app.post("/api/admin/states", requireAdmin, async (req, res) => {
+    try {
+      const stateData = stateSchema.parse(req.body);
+      const newState = await mysqlStorage.createState(stateData);
+      res.status(201).json(newState);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors[0].message });
+      }
+      console.error("Error creating state:", error);
+      res.status(500).json({ error: "Failed to create state" });
+    }
+  });
+
+  app.put("/api/admin/states/:id", requireAdmin, async (req, res) => {
+    try {
+      const stateId = parseInt(req.params.id);
+      const stateData = stateSchema.parse(req.body);
+      const updatedState = await mysqlStorage.updateState(stateId, stateData);
+
+      if (!updatedState) {
+        return res.status(404).json({ error: "State not found" });
+      }
+
+      res.json(updatedState);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors[0].message });
+      }
+      console.error("Error updating state:", error);
+      res.status(500).json({ error: "Failed to update state" });
+    }
+  });
+
+  app.delete("/api/admin/states/:id", requireAdmin, async (req, res) => {
+    try {
+      const stateId = parseInt(req.params.id);
+      const deleted = await mysqlStorage.deleteState(stateId);
+
+      if (!deleted) {
+        return res.status(404).json({ error: "State not found" });
+      }
+
+      res.json({ message: "State deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting state:", error);
+      res.status(500).json({ error: "Failed to delete state" });
+    }
+  });
+
+  // District Routes
+  app.get("/api/admin/districts", requireAdmin, async (req, res) => {
+    try {
+      const districts = await mysqlStorage.getAllDistricts();
+      res.json(districts);
+    } catch (error) {
+      console.error("Error fetching districts:", error);
+      res.status(500).json({ error: "Failed to fetch districts" });
+    }
+  });
+
+  app.get("/api/admin/districts/:id", requireAdmin, async (req, res) => {
+    try {
+      const districtId = parseInt(req.params.id);
+      const district = await mysqlStorage.getDistrictById(districtId);
+
+      if (!district) {
+        return res.status(404).json({ error: "District not found" });
+      }
+
+      res.json(district);
+    } catch (error) {
+      console.error("Error fetching district:", error);
+      res.status(500).json({ error: "Failed to fetch district" });
+    }
+  });
+
+  app.get("/api/admin/districts/by-state/:stateId", requireAdmin, async (req, res) => {
+    try {
+      const stateId = parseInt(req.params.stateId);
+      const districts = await mysqlStorage.getDistrictsByState(stateId);
+      res.json(districts);
+    } catch (error) {
+      console.error("Error fetching districts by state:", error);
+      res.status(500).json({ error: "Failed to fetch districts" });
+    }
+  });
+
+  app.get("/api/admin/districts/by-country/:countryId", requireAdmin, async (req, res) => {
+    try {
+      const countryId = parseInt(req.params.countryId);
+      const districts = await mysqlStorage.getDistrictsByCountry(countryId);
+      res.json(districts);
+    } catch (error) {
+      console.error("Error fetching districts by country:", error);
+      res.status(500).json({ error: "Failed to fetch districts" });
+    }
+  });
+
+  app.post("/api/admin/districts", requireAdmin, async (req, res) => {
+    try {
+      const districtData = districtSchema.parse(req.body);
+      const newDistrict = await mysqlStorage.createDistrict(districtData);
+      res.status(201).json(newDistrict);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors[0].message });
+      }
+      console.error("Error creating district:", error);
+      res.status(500).json({ error: "Failed to create district" });
+    }
+  });
+
+  app.put("/api/admin/districts/:id", requireAdmin, async (req, res) => {
+    try {
+      const districtId = parseInt(req.params.id);
+      const districtData = districtSchema.parse(req.body);
+      const updatedDistrict = await mysqlStorage.updateDistrict(districtId, districtData);
+
+      if (!updatedDistrict) {
+        return res.status(404).json({ error: "District not found" });
+      }
+
+      res.json(updatedDistrict);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors[0].message });
+      }
+      console.error("Error updating district:", error);
+      res.status(500).json({ error: "Failed to update district" });
+    }
+  });
+
+  app.delete("/api/admin/districts/:id", requireAdmin, async (req, res) => {
+    try {
+      const districtId = parseInt(req.params.id);
+      const deleted = await mysqlStorage.deleteDistrict(districtId);
+
+      if (!deleted) {
+        return res.status(404).json({ error: "District not found" });
+      }
+
+      res.json({ message: "District deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting district:", error);
+      res.status(500).json({ error: "Failed to delete district" });
     }
   });
 

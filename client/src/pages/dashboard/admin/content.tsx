@@ -3,37 +3,16 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import ContinentManagement from "@/components/content/ContinentManagement";
+import CountryManagement from "@/components/content/CountryManagement";
+import StateManagement from "@/components/content/StateManagement";
+import DistrictManagement from "@/components/content/DistrictManagement";
 
 function AdminContent() {
-  const [activeTab, setActiveTab] = useState('location');
-  const [selectedCountry, setSelectedCountry] = useState('');
-  const [selectedState, setSelectedState] = useState('');
+  const [activeTab, setActiveTab] = useState('continent');
   const { toast } = useToast();
 
-  // Mock data - replace with real API calls
-  const locationsQuery = useQuery({
-    queryKey: ['/api/admin/locations'],
-    queryFn: () => Promise.resolve({
-      countries: [
-        { id: '1', name: 'United States', code: 'US', states: 50, districts: 3142 },
-        { id: '2', name: 'India', code: 'IN', states: 28, districts: 766 },
-        { id: '3', name: 'United Kingdom', code: 'UK', states: 4, districts: 48 },
-        { id: '4', name: 'Canada', code: 'CA', states: 13, districts: 293 },
-      ],
-      states: [
-        { id: '1', name: 'California', countryId: '1', districts: 58 },
-        { id: '2', name: 'Texas', countryId: '1', districts: 254 },
-        { id: '3', name: 'Maharashtra', countryId: '2', districts: 36 },
-        { id: '4', name: 'Karnataka', countryId: '2', districts: 31 },
-      ],
-      districts: [
-        { id: '1', name: 'Los Angeles', stateId: '1' },
-        { id: '2', name: 'San Francisco', stateId: '1' },
-        { id: '3', name: 'Mumbai', stateId: '3' },
-        { id: '4', name: 'Pune', stateId: '3' },
-      ]
-    })
-  });
+
 
   const languagesQuery = useQuery({
     queryKey: ['/api/admin/languages'],
@@ -68,22 +47,7 @@ function AdminContent() {
     ])
   });
 
-  const addLocationMutation = useMutation({
-    mutationFn: async (data: any) => {
-      return apiRequest('/api/admin/locations', {
-        method: 'POST',
-        body: JSON.stringify(data),
-        headers: { 'Content-Type': 'application/json' }
-      });
-    },
-    onSuccess: () => {
-      toast({
-        title: "Success",
-        description: "Location added successfully",
-      });
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/locations'] });
-    }
-  });
+
 
   const menuItems = [
     { icon: 'bi-speedometer2', label: 'Dashboard', path: '/dashboard/admin' },
@@ -107,28 +71,49 @@ function AdminContent() {
               <h5 className="card-title mb-0">Content Sections</h5>
             </div>
             <div className="list-group list-group-flush">
-              <button 
-                className={`list-group-item list-group-item-action ${activeTab === 'location' ? 'active' : ''}`}
-                onClick={() => setActiveTab('location')}
-                data-testid="tab-location"
+              <button
+                className={`list-group-item list-group-item-action ${activeTab === 'continent' ? 'active' : ''}`}
+                onClick={() => setActiveTab('continent')}
+                data-testid="tab-continent"
               >
-                <i className="bi bi-geo-alt me-2"></i>Location Management
+                <i className="bi bi-globe me-2"></i>Continent
               </button>
-              <button 
+              <button
+                className={`list-group-item list-group-item-action ${activeTab === 'country' ? 'active' : ''}`}
+                onClick={() => setActiveTab('country')}
+                data-testid="tab-country"
+              >
+                <i className="bi bi-flag me-2"></i>Country
+              </button>
+              <button
+                className={`list-group-item list-group-item-action ${activeTab === 'state' ? 'active' : ''}`}
+                onClick={() => setActiveTab('state')}
+                data-testid="tab-state"
+              >
+                <i className="bi bi-map me-2"></i>State
+              </button>
+              <button
+                className={`list-group-item list-group-item-action ${activeTab === 'district' ? 'active' : ''}`}
+                onClick={() => setActiveTab('district')}
+                data-testid="tab-district"
+              >
+                <i className="bi bi-geo-alt me-2"></i>District
+              </button>
+              <button
                 className={`list-group-item list-group-item-action ${activeTab === 'language' ? 'active' : ''}`}
                 onClick={() => setActiveTab('language')}
                 data-testid="tab-language"
               >
                 <i className="bi bi-translate me-2"></i>Language Management
               </button>
-              <button 
+              <button
                 className={`list-group-item list-group-item-action ${activeTab === 'education' ? 'active' : ''}`}
                 onClick={() => setActiveTab('education')}
                 data-testid="tab-education"
               >
                 <i className="bi bi-mortarboard me-2"></i>Education Levels
               </button>
-              <button 
+              <button
                 className={`list-group-item list-group-item-action ${activeTab === 'profession' ? 'active' : ''}`}
                 onClick={() => setActiveTab('profession')}
                 data-testid="tab-profession"
@@ -140,72 +125,38 @@ function AdminContent() {
         </div>
 
         <div className="col-lg-9">
-          {/* Location Management Tab */}
-          {activeTab === 'location' && (
+          {/* Continent Management Tab */}
+          {activeTab === 'continent' && (
             <div className="card">
-              <div className="card-header d-flex justify-content-between align-items-center">
-                <h5 className="card-title mb-0">Location Management</h5>
-                <button className="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addLocationModal">
-                  <i className="bi bi-plus me-1"></i>Add Location
-                </button>
-              </div>
               <div className="card-body">
-                <div className="row g-4">
-                  {/* Countries */}
-                  <div className="col-md-4">
-                    <h6 className="mb-3">Countries ({locationsQuery.data?.countries.length})</h6>
-                    <div className="list-group">
-                      {locationsQuery.data?.countries.map((country) => (
-                        <div key={country.id} className="list-group-item">
-                          <div className="d-flex justify-content-between align-items-center">
-                            <div>
-                              <h6 className="mb-1">{country.name}</h6>
-                              <small className="text-muted">{country.states} states, {country.districts} districts</small>
-                            </div>
-                            <span className="badge bg-primary">{country.code}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                <ContinentManagement />
+              </div>
+            </div>
+          )}
 
-                  {/* States */}
-                  <div className="col-md-4">
-                    <h6 className="mb-3">States/Provinces ({locationsQuery.data?.states.length})</h6>
-                    <div className="list-group">
-                      {locationsQuery.data?.states.map((state) => (
-                        <div key={state.id} className="list-group-item">
-                          <div className="d-flex justify-content-between align-items-center">
-                            <div>
-                              <h6 className="mb-1">{state.name}</h6>
-                              <small className="text-muted">{state.districts} districts</small>
-                            </div>
-                            <button className="btn btn-sm btn-outline-primary">
-                              <i className="bi bi-pencil"></i>
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+          {/* Country Management Tab */}
+          {activeTab === 'country' && (
+            <div className="card">
+              <div className="card-body">
+                <CountryManagement />
+              </div>
+            </div>
+          )}
 
-                  {/* Districts */}
-                  <div className="col-md-4">
-                    <h6 className="mb-3">Districts ({locationsQuery.data?.districts.length})</h6>
-                    <div className="list-group">
-                      {locationsQuery.data?.districts.map((district) => (
-                        <div key={district.id} className="list-group-item">
-                          <div className="d-flex justify-content-between align-items-center">
-                            <h6 className="mb-0">{district.name}</h6>
-                            <button className="btn btn-sm btn-outline-primary">
-                              <i className="bi bi-pencil"></i>
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+          {/* State Management Tab */}
+          {activeTab === 'state' && (
+            <div className="card">
+              <div className="card-body">
+                <StateManagement />
+              </div>
+            </div>
+          )}
+
+          {/* District Management Tab */}
+          {activeTab === 'district' && (
+            <div className="card">
+              <div className="card-body">
+                <DistrictManagement />
               </div>
             </div>
           )}
