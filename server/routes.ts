@@ -1044,6 +1044,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== CATEGORIES MANAGEMENT API ROUTES =====
+
+  // Menu Categories Route (for hierarchical dropdown menu)
+  app.get("/api/admin/menu-categories", requireAdmin, async (req, res) => {
+    try {
+      console.log("🔍 Menu Categories API called");
+      const categories = await mysqlStorage.getAllCategories();
+      console.log("🔍 Menu Categories fetched:", categories.length, "items");
+      res.json(categories);
+    } catch (error) {
+      console.error("🔍 Error fetching menu categories:", error);
+      res.status(500).json({ error: "Failed to fetch menu categories" });
+    }
+  });
+
+  // Categories Routes (for categories management page)
+  app.get("/api/admin/categories", requireAdmin, async (req, res) => {
+    try {
+      console.log("📁 Categories API called");
+      const categories = await mysqlStorage.getAllCategories();
+      console.log("📁 Categories fetched:", categories.length, "items");
+      res.json(categories);
+    } catch (error) {
+      console.error("📁 Error fetching categories:", error);
+      res.status(500).json({ error: "Failed to fetch categories" });
+    }
+  });
+
+  app.get("/api/admin/categories/:id", requireAdmin, async (req, res) => {
+    try {
+      const categoryId = parseInt(req.params.id);
+      const category = await mysqlStorage.getCategoryById(categoryId);
+
+      if (!category) {
+        return res.status(404).json({ error: "Category not found" });
+      }
+
+      res.json(category);
+    } catch (error) {
+      console.error("Error fetching category:", error);
+      res.status(500).json({ error: "Failed to fetch category" });
+    }
+  });
+
+  app.post("/api/admin/categories", requireAdmin, async (req, res) => {
+    try {
+      const categoryData = req.body;
+      const newCategory = await mysqlStorage.createCategory(categoryData);
+      res.status(201).json(newCategory);
+    } catch (error) {
+      console.error("Error creating category:", error);
+      res.status(500).json({ error: "Failed to create category" });
+    }
+  });
+
+  app.put("/api/admin/categories/:id", requireAdmin, async (req, res) => {
+    try {
+      const categoryId = parseInt(req.params.id);
+      const categoryData = req.body;
+      const updatedCategory = await mysqlStorage.updateCategory(categoryId, categoryData);
+
+      if (!updatedCategory) {
+        return res.status(404).json({ error: "Category not found" });
+      }
+
+      res.json(updatedCategory);
+    } catch (error) {
+      console.error("Error updating category:", error);
+      res.status(500).json({ error: "Failed to update category" });
+    }
+  });
+
+  app.delete("/api/admin/categories/:id", requireAdmin, async (req, res) => {
+    try {
+      const categoryId = parseInt(req.params.id);
+      const deleted = await mysqlStorage.deleteCategory(categoryId);
+
+      if (!deleted) {
+        return res.status(404).json({ error: "Category not found" });
+      }
+
+      res.json({ message: "Category deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting category:", error);
+      res.status(500).json({ error: "Failed to delete category" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

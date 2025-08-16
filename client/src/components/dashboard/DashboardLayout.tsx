@@ -1,11 +1,21 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+
+interface SubMenuItem {
+  id: number;
+  name: string;
+  path?: string;
+}
 
 interface MenuItem {
   icon: string;
   label: string;
-  path: string;
+  path?: string;
   active?: boolean;
+  hasSubmenu?: boolean;
+  submenuItems?: SubMenuItem[];
 }
 
 interface DashboardLayoutProps {
@@ -18,11 +28,55 @@ interface DashboardLayoutProps {
 export default function DashboardLayout({ title, userRole, menuItems, children }: DashboardLayoutProps) {
   const [, setLocation] = useLocation();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set());
+
+  // Fetch categories for the Categories menu
+  const categoriesQuery = useQuery({
+    queryKey: ['menu-categories-v2'],
+    queryFn: async () => {
+      try {
+        console.log('🔍 Fetching menu categories...');
+        const response = await apiRequest('/api/admin/menu-categories');
+        const data = await response.json();
+        console.log('🔍 Menu categories response:', data);
+        // Filter for "My Apps" and sort by order_by
+        return data
+          .filter((item: any) => item.apps_name === 'My Apps')
+          .sort((a: any, b: any) => (a.order_by || 0) - (b.order_by || 0));
+      } catch (error) {
+        console.error('🔍 Error fetching menu categories:', error);
+        return [];
+      }
+    },
+    retry: false,
+  });
 
   const handleLogout = () => {
     // TODO: Implement actual logout logic
     setLocation('/auth/login');
   };
+
+  const toggleSubmenu = (label: string) => {
+    const newExpanded = new Set(expandedMenus);
+    if (newExpanded.has(label)) {
+      newExpanded.delete(label);
+    } else {
+      newExpanded.add(label);
+    }
+    setExpandedMenus(newExpanded);
+  };
+
+  // Update menuItems to include Categories submenu
+  const enhancedMenuItems = menuItems.map(item => {
+    if (item.label === 'Categories') {
+      return {
+        ...item,
+        hasSubmenu: true,
+        submenuItems: categoriesQuery.data || []
+      };
+    }
+    return item;
+  });
 
   const getRoleColor = (role: string) => {
     switch(role) {
@@ -69,20 +123,72 @@ export default function DashboardLayout({ title, userRole, menuItems, children }
         {/* Navigation */}
         <nav className="flex-grow-1">
           <ul className="nav nav-pills flex-column p-3">
-            {menuItems.map((item, index) => (
+            {enhancedMenuItems.map((item, index) => (
               <li key={index} className="nav-item mb-1">
-                <a
-                  href="#"
-                  className={`nav-link d-flex align-items-center text-white ${item.active ? 'active' : ''}`}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setLocation(item.path);
-                  }}
-                  data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
-                >
-                  <i className={`${item.icon} me-3`} style={{ minWidth: '20px' }}></i>
-                  {!sidebarCollapsed && <span>{item.label}</span>}
-                </a>
+                {item.hasSubmenu ? (
+                  // Menu item with submenu
+                  <div>
+                    <a
+                      href="#"
+                      className={`nav-link d-flex align-items-center text-white ${item.active ? 'active' : ''}`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (!sidebarCollapsed) {
+                          toggleSubmenu(item.label);
+                        }
+                      }}
+                      data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
+                    >
+                      <i className={`${item.icon} me-3`} style={{ minWidth: '20px' }}></i>
+                      {!sidebarCollapsed && (
+                        <>
+                          <span className="flex-grow-1">{item.label}</span>
+                          <i className={`bi ${expandedMenus.has(item.label) ? 'bi-chevron-down' : 'bi-chevron-right'} ms-2`}></i>
+                        </>
+                      )}
+                    </a>
+
+                    {/* Submenu */}
+                    {!sidebarCollapsed && expandedMenus.has(item.label) && (
+                      <ul className="nav nav-pills flex-column ms-3 mt-2">
+                        {item.submenuItems?.map((subItem) => (
+                          <li key={subItem.id} className="nav-item mb-1">
+                            <a
+                              href="#"
+                              className="nav-link d-flex align-items-center text-white-50 py-2"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                if (subItem.path) {
+                                  setLocation(subItem.path);
+                                }
+                              }}
+                              style={{ fontSize: '0.9rem' }}
+                            >
+                              <i className="bi bi-dot me-2" style={{ minWidth: '16px' }}></i>
+                              <span>{subItem.name}</span>
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                ) : (
+                  // Regular menu item
+                  <a
+                    href="#"
+                    className={`nav-link d-flex align-items-center text-white ${item.active ? 'active' : ''}`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (item.path) {
+                        setLocation(item.path);
+                      }
+                    }}
+                    data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
+                  >
+                    <i className={`${item.icon} me-3`} style={{ minWidth: '20px' }}></i>
+                    {!sidebarCollapsed && <span>{item.label}</span>}
+                  </a>
+                )}
               </li>
             ))}
           </ul>

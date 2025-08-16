@@ -46,7 +46,7 @@ export default function AdminDashboard() {
     { icon: 'bi-speedometer2', label: 'Dashboard', path: '/dashboard/admin', active: true },
     { icon: 'bi-person', label: 'Profile', path: '/dashboard/admin/profile' },
     { icon: 'bi-file-text', label: 'Content', path: '/dashboard/admin/content' },
-    { icon: 'bi-tags', label: 'Categories', path: '/dashboard/admin/categories' },
+    { icon: 'bi-tags', label: 'Categories' }, // No path - will be dropdown
     { icon: 'bi-megaphone', label: 'My Ads', path: '/dashboard/admin/ads' },
     { icon: 'bi-building', label: 'Corporate Login', path: '/dashboard/admin/corporate-login' },
     { icon: 'bi-gear', label: 'System Settings', path: '/dashboard/admin/settings' },

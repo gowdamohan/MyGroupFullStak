@@ -742,6 +742,70 @@ export class MySQLStorage implements IMySQLStorage {
       throw error;
     }
   }
+
+  // Categories Management Methods
+
+  async getAllCategories(): Promise<any[]> {
+    try {
+      console.log("📁 MySQL: Executing getAllCategories query");
+      const [rows] = await connection.execute('SELECT * FROM group_create ORDER BY apps_name, order_by');
+      console.log("📁 MySQL: Query result:", rows);
+      return rows as any[];
+    } catch (error) {
+      console.error("📁 MySQL: Error fetching categories:", error);
+      throw error;
+    }
+  }
+
+  async getCategoryById(id: number): Promise<any | null> {
+    try {
+      const [rows] = await connection.execute('SELECT * FROM group_create WHERE id = ?', [id]);
+      return (rows as any[])[0] || null;
+    } catch (error) {
+      console.error("Error fetching category by ID:", error);
+      throw error;
+    }
+  }
+
+  async createCategory(categoryData: any): Promise<any> {
+    try {
+      const [result] = await connection.execute(
+        'INSERT INTO group_create (name, apps_name, order_by, code) VALUES (?, ?, ?, ?)',
+        [categoryData.name, categoryData.apps_name, categoryData.order_by || 0, categoryData.code || null]
+      );
+
+      const [newCategory] = await connection.execute('SELECT * FROM group_create WHERE id = ?', [(result as any).insertId]);
+      return (newCategory as any[])[0];
+    } catch (error) {
+      console.error("Error creating category:", error);
+      throw error;
+    }
+  }
+
+  async updateCategory(id: number, categoryData: any): Promise<any | null> {
+    try {
+      await connection.execute(
+        'UPDATE group_create SET name = ?, apps_name = ?, order_by = ?, code = ? WHERE id = ?',
+        [categoryData.name, categoryData.apps_name, categoryData.order_by || 0, categoryData.code || null, id]
+      );
+
+      const [updatedCategory] = await connection.execute('SELECT * FROM group_create WHERE id = ?', [id]);
+      return (updatedCategory as any[])[0] || null;
+    } catch (error) {
+      console.error("Error updating category:", error);
+      throw error;
+    }
+  }
+
+  async deleteCategory(id: number): Promise<boolean> {
+    try {
+      const [result] = await connection.execute('DELETE FROM group_create WHERE id = ?', [id]);
+      return (result as any).affectedRows > 0;
+    } catch (error) {
+      console.error("Error deleting category:", error);
+      throw error;
+    }
+  }
 }
 
 export const mysqlStorage = new MySQLStorage();

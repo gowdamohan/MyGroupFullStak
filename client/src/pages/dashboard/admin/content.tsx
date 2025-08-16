@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient } from "@/lib/queryClient";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import ContinentManagement from "@/components/content/ContinentManagement";
 import CountryManagement from "@/components/content/CountryManagement";
@@ -160,6 +159,8 @@ function AdminContent() {
               </div>
             </div>
           )}
+
+
 
           {/* Language Management Tab */}
           {activeTab === 'language' && (
