@@ -43,10 +43,23 @@ export class MemStorage implements IStorage {
     const saltRounds = 12;
     const hashedPassword = await bcrypt.hash(insertUser.password, saltRounds);
     
-    const user: User = { 
-      ...insertUser, 
+    const user: User = {
       id,
+      username: insertUser.username,
+      firstName: insertUser.firstName,
+      lastName: insertUser.lastName,
+      email: insertUser.email,
+      phone: insertUser.phone,
       password: hashedPassword,
+      role: insertUser.role || "user",
+      gender: insertUser.gender || null,
+      dateOfBirth: insertUser.dateOfBirth || null,
+      country: insertUser.country || null,
+      state: insertUser.state || null,
+      district: insertUser.district || null,
+      education: insertUser.education || null,
+      profession: insertUser.profession || null,
+      company: insertUser.company || null,
       isVerified: false,
       createdAt: new Date()
     };

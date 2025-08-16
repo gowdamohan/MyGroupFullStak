@@ -6,6 +6,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Home from "@/pages/home";
 import LoginPage from "@/pages/login";
+import AdminLoginPage from "@/pages/admin-login";
+import AdminDashboardPage from "@/pages/admin-dashboard";
 import AdminDashboard from "@/pages/dashboard/admin";
 import CorporateDashboard from "@/pages/dashboard/corporate";
 import RegionalDashboard from "@/pages/dashboard/regional";
@@ -24,6 +26,8 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/auth/login" component={LoginPage} />
+      <Route path="/admin/login" component={AdminLoginPage} />
+      <Route path="/admin/dashboard" component={AdminDashboardPage} />
       <Route path="/dashboard/admin" component={AdminDashboard} />
       <Route path="/dashboard/admin/profile">
         <Suspense fallback={<div className="text-center p-5"><div className="spinner-border"></div></div>}>

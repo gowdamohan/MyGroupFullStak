@@ -2,17 +2,14 @@ import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { z } from "zod";
 import { storage } from "./storage";
-import { loginSchema, registrationStep1Schema, registrationStep2Schema } from "@shared/schema";
+import { mysqlStorage } from "./mysql-storage";
+import { loginSchema, adminLoginSchema, registrationSchema } from "@shared/schema";
 
 // Extend Express Request type to include session
-declare global {
-  namespace Express {
-    interface Request {
-      session: any & {
-        userId?: string;
-        userRole?: string;
-      };
-    }
+declare module 'express-session' {
+  interface SessionData {
+    userId?: string;
+    userRole?: string;
   }
 }
 
@@ -22,54 +19,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ message: "API is working!" });
   });
 
-  // Authentication Routes - Now using MySQL backend
+  // Admin Authentication Routes - Using MySQL
+  app.post("/api/auth/admin/login", async (req, res) => {
+    try {
+      const { username, password } = adminLoginSchema.parse(req.body);
+
+      // Authenticate using MySQL storage
+      const user = await mysqlStorage.authenticateUser(username, password);
+      if (!user) {
+        return res.status(401).json({ error: "Invalid username or password" });
+      }
+
+      // Check if user is admin
+      const isAdmin = await mysqlStorage.isAdmin(user.id);
+      if (!isAdmin) {
+        return res.status(403).json({ error: "Access denied. Admin privileges required." });
+      }
+
+      // Store user session
+      req.session.userId = user.id.toString();
+      req.session.userRole = 'admin';
+
+      // Return user data (excluding password)
+      const { password: _, salt: __, ...userWithoutPassword } = user;
+      res.json({
+        user: userWithoutPassword,
+        message: "Admin login successful",
+        isAdmin: true
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors[0].message });
+      }
+      console.error("Admin login error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Regular user authentication (fallback to in-memory storage)
   app.post("/api/auth/login", async (req, res) => {
     try {
       const { username, password } = loginSchema.parse(req.body);
-      
-      // Try MySQL backend first
-      try {
-        const response = await fetch('http://localhost:3001/api/auth/login', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ username, password })
-        });
 
-        const data = await response.json();
-        
-        if (response.ok) {
-          // Set session data from MySQL backend response
-          req.session.userId = data.user.id;
-          req.session.userRole = data.user.role;
-          
-          return res.json(data);
-        } else if (response.status === 401) {
-          // MySQL backend says invalid credentials, try fallback
-          return res.status(401).json(data);
-        }
-      } catch (mysqlError) {
-        console.log("MySQL backend not available, using fallback storage");
+      // Try MySQL storage first
+      const mysqlUser = await mysqlStorage.authenticateUser(username, password);
+      if (mysqlUser) {
+        req.session.userId = mysqlUser.id.toString();
+        req.session.userRole = 'user';
+
+        const { password: _, salt: __, ...userWithoutPassword } = mysqlUser;
+        return res.json({
+          user: userWithoutPassword,
+          message: "Login successful"
+        });
       }
-      
-      // Fallback to in-memory storage if MySQL backend is not available
+
+      // Fallback to in-memory storage
       const user = await storage.getUserByUsername(username);
       if (!user) {
         return res.status(401).json({ error: "Invalid username or password" });
       }
 
-      // Verify password using bcrypt
       const isValidPassword = await storage.verifyPassword(password, user.password);
       if (!isValidPassword) {
         return res.status(401).json({ error: "Invalid username or password" });
       }
 
-      // Store user session
       req.session.userId = user.id;
       req.session.userRole = user.role;
 
-      // Return user data (excluding password)
       const { password: _, ...userWithoutPassword } = user;
       res.json({
         user: userWithoutPassword,
@@ -93,16 +111,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  app.get("/api/auth/me", (req, res) => {
+  // Admin middleware
+  const requireAdmin = async (req: any, res: any, next: any) => {
     if (!req.session.userId) {
       return res.status(401).json({ error: "Not authenticated" });
     }
-    
-    // Get user info from session
-    res.json({
-      userId: req.session.userId,
-      userRole: req.session.userRole
-    });
+
+    if (req.session.userRole !== 'admin') {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+
+    next();
+  };
+
+  app.get("/api/auth/me", async (req, res) => {
+    if (!req.session.userId) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    try {
+      // Try to get user from MySQL storage
+      const userId = parseInt(req.session.userId);
+      if (!isNaN(userId)) {
+        const user = await mysqlStorage.getUser(userId);
+        if (user) {
+          const isAdmin = await mysqlStorage.isAdmin(userId);
+          const { password: _, salt: __, ...userWithoutPassword } = user;
+          return res.json({
+            user: userWithoutPassword,
+            userId: req.session.userId,
+            userRole: req.session.userRole,
+            isAdmin
+          });
+        }
+      }
+
+      // Fallback to session data
+      res.json({
+        userId: req.session.userId,
+        userRole: req.session.userRole,
+        isAdmin: req.session.userRole === 'admin'
+      });
+    } catch (error) {
+      console.error("Error getting user info:", error);
+      res.json({
+        userId: req.session.userId,
+        userRole: req.session.userRole,
+        isAdmin: req.session.userRole === 'admin'
+      });
+    }
+  });
+
+  // Admin dashboard route
+  app.get("/api/admin/dashboard", requireAdmin, async (req, res) => {
+    try {
+      // Get admin dashboard data
+      res.json({
+        message: "Welcome to admin dashboard",
+        timestamp: new Date().toISOString(),
+        adminId: req.session.userId
+      });
+    } catch (error) {
+      console.error("Admin dashboard error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
   });
 
   // User Registration Routes

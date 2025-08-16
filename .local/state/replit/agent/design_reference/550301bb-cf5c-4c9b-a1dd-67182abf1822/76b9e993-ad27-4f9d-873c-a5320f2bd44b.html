@@ -1,0 +1,773 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vite React Bootstrap - Mobile App Platform</title>
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    
+    <style>
+        :root {
+            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            --success-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            --card-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            --glass-background: rgba(255, 255, 255, 0.25);
+            --glass-border: rgba(255, 255, 255, 0.18);
+        }
+
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background: var(--primary-gradient);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .mobile-container {
+            max-width: 375px;
+            margin: 0 auto;
+            background: #f8f9fa;
+            min-height: 100vh;
+            position: relative;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Header Styles */
+        .mobile-header {
+            background: white;
+            padding: 12px 16px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .search-container {
+            position: relative;
+        }
+
+        .search-input {
+            border-radius: 25px;
+            padding: 12px 20px 12px 45px;
+            border: 1px solid #e9ecef;
+            background: #f8f9fa;
+            font-size: 14px;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #6c757d;
+        }
+
+        /* App Icons Grid */
+        .apps-grid {
+            padding: 20px 16px;
+            gap: 16px;
+        }
+
+        .app-card {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: var(--card-shadow);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: none;
+            height: 120px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .app-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .app-icon {
+            font-size: 32px;
+            margin-bottom: 8px;
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .app-card.gaming .app-icon {
+            background: var(--secondary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .app-card.social .app-icon {
+            background: var(--success-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .app-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            margin: 0;
+        }
+
+        /* Ads Carousel */
+        .ads-carousel {
+            margin: 20px 16px;
+        }
+
+        .carousel-item img {
+            border-radius: 12px;
+            height: 120px;
+            object-fit: cover;
+        }
+
+        /* Welcome Section */
+        .welcome-section {
+            margin: 20px 16px;
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: var(--card-shadow);
+        }
+
+        .cta-button {
+            background: var(--primary-gradient);
+            border: none;
+            border-radius: 12px;
+            padding: 14px 24px;
+            color: white;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .cta-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+            color: white;
+        }
+
+        /* Bottom Navigation */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100%;
+            max-width: 375px;
+            background: white;
+            padding: 12px 0;
+            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+        }
+
+        .nav-item {
+            text-align: center;
+            color: #6c757d;
+            text-decoration: none;
+            font-size: 12px;
+            transition: color 0.3s ease;
+        }
+
+        .nav-item.active {
+            color: #007bff;
+        }
+
+        .nav-item i {
+            font-size: 20px;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        /* Modal Styles */
+        .glass-modal {
+            background: var(--glass-background);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-backdrop.show {
+            opacity: 0.8;
+        }
+
+        .login-icon {
+            width: 80px;
+            height: 80px;
+            background: var(--primary-gradient);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 24px;
+        }
+
+        .form-floating > .form-control {
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.9);
+        }
+
+        .otp-input {
+            width: 45px;
+            height: 45px;
+            text-align: center;
+            border-radius: 8px;
+            border: 2px solid #e9ecef;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .otp-input:focus {
+            border-color: #007bff;
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+        }
+
+        .progress-custom {
+            height: 8px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .progress-bar-custom {
+            background: var(--success-gradient);
+            border-radius: 10px;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 375px) {
+            .mobile-container {
+                max-width: 100%;
+            }
+            
+            .apps-grid {
+                padding: 16px 12px;
+                gap: 12px;
+            }
+            
+            .app-card {
+                padding: 16px;
+                height: 100px;
+            }
+        }
+
+        /* Animation classes */
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .slide-up {
+            animation: slideUp 0.3s ease-out;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <!-- @COMPONENT: MobileApp [main container for mobile application] -->
+    <div class="mobile-container">
+        
+        <!-- @COMPONENT: MobileHeader [header with logo, search, and profile] -->
+        <header class="mobile-header">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <h5 class="fw-bold text-primary mb-0" data-mock="true">AppHub</h5>
+                <div class="position-relative">
+                    <i class="bi bi-person-circle fs-4 text-muted" data-event="click:showProfile"></i>
+                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 10px;">
+                        3
+                        <span class="visually-hidden">unread messages</span>
+                    </span>
+                </div>
+            </div>
+            
+            <div class="search-container">
+                <input type="text" class="form-control search-input" placeholder="Search apps..." data-mock="true">
+                <i class="bi bi-search search-icon"></i>
+            </div>
+        </header>
+        <!-- @END_COMPONENT: MobileHeader -->
+
+        <!-- @COMPONENT: AppsGrid [grid layout for application icons] -->
+        <div class="apps-grid">
+            <div class="row g-3">
+                <!-- @MAP: apps.map(app => ( -->
+                <div class="col-4">
+                    <div class="app-card" data-event="click:openApp" data-bind="app.id">
+                        <i class="bi bi-journal-code app-icon"></i>
+                        <p class="app-title" data-bind="app.name" data-mock="true">Developer</p>
+                    </div>
+                </div>
+                
+                <div class="col-4">
+                    <div class="app-card gaming" data-event="click:openApp">
+                        <i class="bi bi-controller app-icon"></i>
+                        <p class="app-title" data-mock="true">Gaming</p>
+                    </div>
+                </div>
+                
+                <div class="col-4">
+                    <div class="app-card social" data-event="click:openApp">
+                        <i class="bi bi-people app-icon"></i>
+                        <p class="app-title" data-mock="true">Social</p>
+                    </div>
+                </div>
+                
+                <div class="col-4">
+                    <div class="app-card" data-event="click:openApp">
+                        <i class="bi bi-camera app-icon"></i>
+                        <p class="app-title" data-mock="true">Photo</p>
+                    </div>
+                </div>
+                
+                <div class="col-4">
+                    <div class="app-card gaming" data-event="click:openApp">
+                        <i class="bi bi-music-note app-icon"></i>
+                        <p class="app-title" data-mock="true">Music</p>
+                    </div>
+                </div>
+                
+                <div class="col-4">
+                    <div class="app-card social" data-event="click:openApp">
+                        <i class="bi bi-cart app-icon"></i>
+                        <p class="app-title" data-mock="true">Shopping</p>
+                    </div>
+                </div>
+                <!-- @END_MAP )) -->
+            </div>
+        </div>
+        <!-- @END_COMPONENT: AppsGrid -->
+
+        <!-- @COMPONENT: AdsCarousel [promotional content carousel] -->
+        <div class="ads-carousel">
+            <div id="adsCarousel" class="carousel slide" data-bs-ride="carousel" data-bs-interval="3000">
+                <div class="carousel-inner">
+                    <div class="carousel-item active">
+                        <!-- A vibrant tech conference banner with people networking -->
+                        <img src="https://images.unsplash.com/photo-1540575467063-178a50c2df87?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=300" class="d-block w-100" alt="Tech Conference" data-mock-image="true">
+                    </div>
+                    <div class="carousel-item">
+                        <!-- A modern smartphone displaying various apps -->
+                        <img src="https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=300" class="d-block w-100" alt="Mobile Apps" data-mock-image="true">
+                    </div>
+                    <div class="carousel-item">
+                        <!-- A creative workspace with laptops and design tools -->
+                        <img src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=300" class="d-block w-100" alt="Creative Workspace" data-mock-image="true">
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- @END_COMPONENT: AdsCarousel -->
+
+        <!-- @COMPONENT: WelcomeSection [user onboarding and call-to-action] -->
+        <!-- @STATE: isAuthenticated:boolean = false -->
+        <div class="welcome-section fade-in" data-condition="!isAuthenticated">
+            <h6 class="fw-bold text-dark mb-3" data-mock="true">Welcome to AppHub!</h6>
+            <p class="text-muted mb-4" data-mock="true">Discover amazing apps, connect with communities, and track your digital journey.</p>
+            <button class="btn cta-button w-100" data-event="click:showLoginModal" data-implementation="Should trigger login modal">
+                Get Started
+            </button>
+        </div>
+        <!-- @END_COMPONENT: WelcomeSection -->
+
+        <!-- Bottom padding for fixed navigation -->
+        <div style="height: 80px;"></div>
+
+        <!-- @COMPONENT: BottomNavigation [fixed bottom navigation tabs] -->
+        <nav class="bottom-nav">
+            <div class="row g-0">
+                <div class="col-3">
+                    <a href="#" class="nav-item active" data-event="click:navigateHome">
+                        <i class="bi bi-house-fill"></i>
+                        <span>Home</span>
+                    </a>
+                </div>
+                <div class="col-3">
+                    <a href="#" class="nav-item" data-event="click:navigateGroups">
+                        <i class="bi bi-people"></i>
+                        <span>Groups</span>
+                    </a>
+                </div>
+                <div class="col-3">
+                    <a href="#" class="nav-item" data-event="click:navigateAnalytics">
+                        <i class="bi bi-graph-up"></i>
+                        <span>Analytics</span>
+                    </a>
+                </div>
+                <div class="col-3">
+                    <a href="#" class="nav-item" data-event="click:navigateSettings">
+                        <i class="bi bi-gear"></i>
+                        <span>Settings</span>
+                    </a>
+                </div>
+            </div>
+        </nav>
+        <!-- @END_COMPONENT: BottomNavigation -->
+    </div>
+    <!-- @END_COMPONENT: MobileApp -->
+
+    <!-- @COMPONENT: UserLoginModal [phone number and OTP verification modal] -->
+    <div class="modal fade" id="loginModal" tabindex="-1" aria-labelledby="loginModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content glass-modal border-0">
+                <div class="modal-header border-0 text-center">
+                    <h5 class="modal-title w-100 text-white fw-bold" id="loginModalLabel">Welcome Back</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="login-icon">
+                        <i class="bi bi-shield-lock text-white fs-2"></i>
+                    </div>
+
+                    <!-- @STATE: loginStep:string = 'phone' -->
+                    
+                    <!-- Phone Number Step -->
+                    <div id="phoneStep" data-condition="loginStep === 'phone'">
+                        <div class="form-floating mb-3">
+                            <input type="tel" class="form-control" id="phoneNumber" placeholder="Phone Number" data-bind="phoneNumber" data-mock="true">
+                            <label for="phoneNumber" class="text-muted">Phone Number</label>
+                        </div>
+                        <button class="btn btn-primary w-100 mb-3" data-event="click:sendOTP" data-implementation="Should send OTP to phone number">
+                            Send OTP
+                        </button>
+                    </div>
+
+                    <!-- OTP Verification Step -->
+                    <div id="otpStep" style="display: none;" data-condition="loginStep === 'otp'">
+                        <p class="text-white text-center mb-4">Enter the 6-digit code sent to <span data-bind="phoneNumber" data-mock="true">+1 XXX-XXX-XXXX</span></p>
+                        <div class="d-flex justify-content-center gap-2 mb-4">
+                            <input type="text" class="otp-input" maxlength="1" data-bind="otp[0]">
+                            <input type="text" class="otp-input" maxlength="1" data-bind="otp[1]">
+                            <input type="text" class="otp-input" maxlength="1" data-bind="otp[2]">
+                            <input type="text" class="otp-input" maxlength="1" data-bind="otp[3]">
+                            <input type="text" class="otp-input" maxlength="1" data-bind="otp[4]">
+                            <input type="text" class="otp-input" maxlength="1" data-bind="otp[5]">
+                        </div>
+                        <button class="btn btn-success w-100 mb-3" data-event="click:verifyOTP" data-implementation="Should verify OTP and authenticate user">
+                            Verify & Login
+                        </button>
+                        <button class="btn btn-outline-light w-100" data-event="click:resendOTP">
+                            Resend OTP
+                        </button>
+                    </div>
+
+                    <div class="text-center mt-4">
+                        <p class="text-white-50 small">Don't have an account? 
+                            <a href="#" class="text-white" data-event="click:showRegistrationModal">Sign up here</a>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- @END_COMPONENT: UserLoginModal -->
+
+    <!-- @COMPONENT: UserRegistrationModal [two-step registration process] -->
+    <div class="modal fade" id="registrationModal" tabindex="-1" aria-labelledby="registrationModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content glass-modal border-0">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title text-white fw-bold" id="registrationModalLabel">Create Account</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    
+                    <!-- @STATE: registrationStep:number = 1 -->
+                    
+                    <!-- Progress Bar -->
+                    <div class="progress progress-custom mb-4">
+                        <div class="progress-bar progress-bar-custom" role="progressbar" style="width: 50%" data-bind="registrationStep * 50 + '%'"></div>
+                    </div>
+                    
+                    <p class="text-white text-center mb-4">Step <span data-bind="registrationStep" data-mock="true">1</span> of 2</p>
+
+                    <!-- Step 1: Basic Information -->
+                    <div id="registrationStep1" data-condition="registrationStep === 1">
+                        <div class="row g-3">
+                            <div class="col-6">
+                                <div class="form-floating">
+                                    <input type="text" class="form-control" id="firstName" placeholder="First Name" data-bind="firstName" data-mock="true">
+                                    <label for="firstName" class="text-muted">First Name</label>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="form-floating">
+                                    <input type="text" class="form-control" id="lastName" placeholder="Last Name" data-bind="lastName" data-mock="true">
+                                    <label for="lastName" class="text-muted">Last Name</label>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="form-floating">
+                                    <input type="email" class="form-control" id="email" placeholder="Email" data-bind="email" data-mock="true">
+                                    <label for="email" class="text-muted">Email Address</label>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="form-floating">
+                                    <input type="tel" class="form-control" id="regPhone" placeholder="Phone" data-bind="phone" data-mock="true">
+                                    <label for="regPhone" class="text-muted">Phone Number</label>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="form-floating">
+                                    <input type="password" class="form-control" id="password" placeholder="Password" data-bind="password" data-mock="true">
+                                    <label for="password" class="text-muted">Password</label>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="form-floating">
+                                    <input type="password" class="form-control" id="confirmPassword" placeholder="Confirm Password" data-bind="confirmPassword" data-mock="true">
+                                    <label for="confirmPassword" class="text-muted">Confirm</label>
+                                </div>
+                            </div>
+                        </div>
+                        <button class="btn btn-primary w-100 mt-4" data-event="click:nextStep" data-implementation="Should validate step 1 and proceed to step 2">
+                            Continue to Step 2
+                        </button>
+                    </div>
+
+                    <!-- Step 2: Additional Details -->
+                    <div id="registrationStep2" style="display: none;" data-condition="registrationStep === 2">
+                        <div class="row g-3">
+                            <div class="col-6">
+                                <div class="form-floating">
+                                    <select class="form-select" id="gender" data-bind="gender">
+                                        <option value="" data-mock="true">Select</option>
+                                        <option value="male" data-mock="true">Male</option>
+                                        <option value="female" data-mock="true">Female</option>
+                                        <option value="other" data-mock="true">Other</option>
+                                    </select>
+                                    <label for="gender" class="text-muted">Gender</label>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="form-floating">
+                                    <input type="date" class="form-control" id="dateOfBirth" data-bind="dateOfBirth" data-mock="true">
+                                    <label for="dateOfBirth" class="text-muted">Date of Birth</label>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="form-floating">
+                                    <select class="form-select" id="country" data-bind="country" data-event="change:loadStates">
+                                        <option value="" data-mock="true">Country</option>
+                                        <option value="us" data-mock="true">USA</option>
+                                        <option value="in" data-mock="true">India</option>
+                                    </select>
+                                    <label for="country" class="text-muted">Country</label>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="form-floating">
+                                    <select class="form-select" id="state" data-bind="state" data-event="change:loadDistricts">
+                                        <option value="" data-mock="true">State</option>
+                                        <!-- @MAP: states.map(state => ( -->
+                                        <option value="ca" data-mock="true">California</option>
+                                        <!-- @END_MAP )) -->
+                                    </select>
+                                    <label for="state" class="text-muted">State</label>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="form-floating">
+                                    <select class="form-select" id="district" data-bind="district">
+                                        <option value="" data-mock="true">District</option>
+                                        <!-- @MAP: districts.map(district => ( -->
+                                        <option value="sf" data-mock="true">San Francisco</option>
+                                        <!-- @END_MAP )) -->
+                                    </select>
+                                    <label for="district" class="text-muted">District</label>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="form-floating">
+                                    <input type="text" class="form-control" id="education" placeholder="Education" data-bind="education" data-mock="true">
+                                    <label for="education" class="text-muted">Education</label>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="form-floating">
+                                    <input type="text" class="form-control" id="profession" placeholder="Profession" data-bind="profession" data-mock="true">
+                                    <label for="profession" class="text-muted">Profession</label>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="form-floating">
+                                    <input type="text" class="form-control" id="company" placeholder="Company" data-bind="company" data-mock="true">
+                                    <label for="company" class="text-muted">Company/Organization</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2 mt-4">
+                            <button class="btn btn-outline-light flex-fill" data-event="click:previousStep">
+                                Back to Step 1
+                            </button>
+                            <button class="btn btn-success flex-fill" data-event="click:createAccount" data-implementation="Should validate all data and create user account">
+                                Create Account
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="text-center mt-4">
+                        <p class="text-white-50 small">Already have an account? 
+                            <a href="#" class="text-white" data-event="click:showLoginModal">Login here</a>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- @END_COMPONENT: UserRegistrationModal -->
+
+    <!-- Bootstrap 5 JavaScript Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        // @FUNCTIONALITY: Auto-show login modal for non-authenticated users
+        (function() {
+            // TODO: Replace with actual authentication check
+            const isAuthenticated = false;
+            
+            if (!isAuthenticated) {
+                setTimeout(() => {
+                    const loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
+                    loginModal.show();
+                }, 2000);
+            }
+
+            // Modal switching functionality
+            document.addEventListener('click', function(e) {
+                if (e.target.matches('[data-event*="showRegistrationModal"]')) {
+                    e.preventDefault();
+                    bootstrap.Modal.getInstance(document.getElementById('loginModal'))?.hide();
+                    setTimeout(() => {
+                        const regModal = new bootstrap.Modal(document.getElementById('registrationModal'));
+                        regModal.show();
+                    }, 300);
+                }
+                
+                if (e.target.matches('[data-event*="showLoginModal"]')) {
+                    e.preventDefault();
+                    const regModalInstance = bootstrap.Modal.getInstance(document.getElementById('registrationModal'));
+                    if (regModalInstance) {
+                        regModalInstance.hide();
+                        setTimeout(() => {
+                            const loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
+                            loginModal.show();
+                        }, 300);
+                    } else {
+                        const loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
+                        loginModal.show();
+                    }
+                }
+            });
+
+            // OTP input auto-focus
+            document.querySelectorAll('.otp-input').forEach((input, index) => {
+                input.addEventListener('input', function(e) {
+                    if (e.target.value.length === 1 && index < 5) {
+                        document.querySelectorAll('.otp-input')[index + 1].focus();
+                    }
+                });
+                
+                input.addEventListener('keydown', function(e) {
+                    if (e.key === 'Backspace' && e.target.value === '' && index > 0) {
+                        document.querySelectorAll('.otp-input')[index - 1].focus();
+                    }
+                });
+            });
+
+            // Registration step navigation
+            let currentRegistrationStep = 1;
+            
+            document.addEventListener('click', function(e) {
+                if (e.target.matches('[data-event*="nextStep"]')) {
+                    e.preventDefault();
+                    // TODO: Add form validation here
+                    currentRegistrationStep = 2;
+                    document.getElementById('registrationStep1').style.display = 'none';
+                    document.getElementById('registrationStep2').style.display = 'block';
+                    document.querySelector('.progress-bar').style.width = '100%';
+                    document.querySelector('[data-bind="registrationStep"]').textContent = '2';
+                }
+                
+                if (e.target.matches('[data-event*="previousStep"]')) {
+                    e.preventDefault();
+                    currentRegistrationStep = 1;
+                    document.getElementById('registrationStep2').style.display = 'none';
+                    document.getElementById('registrationStep1').style.display = 'block';
+                    document.querySelector('.progress-bar').style.width = '50%';
+                    document.querySelector('[data-bind="registrationStep"]').textContent = '1';
+                }
+            });
+
+            // Login step navigation
+            document.addEventListener('click', function(e) {
+                if (e.target.matches('[data-event*="sendOTP"]')) {
+                    e.preventDefault();
+                    // TODO: Implement OTP sending logic
+                    document.getElementById('phoneStep').style.display = 'none';
+                    document.getElementById('otpStep').style.display = 'block';
+                    setTimeout(() => {
+                        document.querySelector('.otp-input').focus();
+                    }, 100);
+                }
+            });
+
+            // App card hover effects
+            document.querySelectorAll('.app-card').forEach(card => {
+                card.addEventListener('mouseenter', function() {
+                    this.style.transform = 'translateY(-4px) scale(1.02)';
+                });
+                
+                card.addEventListener('mouseleave', function() {
+                    this.style.transform = 'translateY(0) scale(1)';
+                });
+            });
+
+            // Bottom navigation active state
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+                    this.classList.add('active');
+                });
+            });
+
+            // TODO: Implement business logic for:
+            // - User authentication and session management
+            // - API calls for OTP sending/verification
+            // - Form validation and error handling
+            // - Location data cascade (country -> state -> district)
+            // - App navigation and routing
+            // - User profile management
+            // - Real-time notifications
+        })();
+    </script>
+</body>
+</html>
