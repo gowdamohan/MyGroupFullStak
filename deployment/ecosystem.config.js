@@ -3,11 +3,11 @@
 module.exports = {
   apps: [
     {
-      name: 'apphub-backend',
-      script: './backend/app.js',
+      name: 'mygroup-app',
+      script: './dist/index.js',
       cwd: '/home/ubuntu/MyGroupFullStack',
-      instances: 'max', // Use all available CPU cores
-      exec_mode: 'cluster',
+      instances: 1, // Start with 1 instance
+      exec_mode: 'fork',
       env: {
         NODE_ENV: 'development',
         PORT: 3000
