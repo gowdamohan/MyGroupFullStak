@@ -57,7 +57,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Store user session
-      req.session.userId = user.id.toString();
+      req.session.userId = user.id;
       req.session.userRole = 'admin';
 
       // Return user data (excluding password)
@@ -84,7 +84,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Try MySQL storage first
       const mysqlUser = await mysqlStorage.authenticateUser(username, password);
       if (mysqlUser) {
-        req.session.userId = mysqlUser.id.toString();
+        req.session.userId = mysqlUser.id;
         req.session.userRole = 'user';
 
         const { password: _, salt: __, ...userWithoutPassword } = mysqlUser;
@@ -200,7 +200,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // User Registration Routes
   app.post("/api/users/register", async (req, res) => {
     try {
-      const step1Data = registrationStep1Schema.parse(req.body.step1);
+      const step1Data = registrationSchema.parse(req.body.step1);
       const step2Data = req.body.step2 || {};
 
       // Check if username or email already exists
@@ -222,7 +222,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         email: step1Data.email,
         phone: step1Data.phone,
         password: step1Data.password, // Will be hashed in storage.createUser
-        role: step1Data.role,
+        ipAddress: req.ip || '127.0.0.1',
         gender: step2Data.gender || null,
         dateOfBirth: step2Data.dateOfBirth || null,
         country: step2Data.country || null,
