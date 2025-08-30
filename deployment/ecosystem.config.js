@@ -5,7 +5,7 @@ module.exports = {
     {
       name: 'mygroup-app',
       script: './dist/index.js',
-      cwd: '/home/ubuntu/MyGroupFullStack',
+      cwd: '/home/ubuntu/MyGroupFullStak',
       instances: 1, // Start with 1 instance
       exec_mode: 'fork',
       env: {
