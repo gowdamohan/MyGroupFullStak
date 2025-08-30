@@ -45,6 +45,9 @@ npm run build
 # Set up environment variables
 cp deployment/production.env .env
 
+# Create logs directory for PM2
+mkdir -p logs
+
 # Update nginx configuration
 sudo cp deployment/nginx.conf /etc/nginx/sites-available/mygroup
 sudo ln -sf /etc/nginx/sites-available/mygroup /etc/nginx/sites-enabled/
