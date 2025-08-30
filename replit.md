@@ -6,6 +6,21 @@ AppHub is a mobile-first web platform designed to provide users with a centraliz
 
 Preferred communication style: Simple, everyday language.
 
+# Recent Changes (December 2024)
+
+## EC2 Deployment Configuration Fixed
+- **Issue Resolved**: 404 API errors on EC2 server (IP: 13.203.76.188)
+- **Root Cause**: Port mismatch between nginx proxy (3000) and Express server (5000)
+- **Solution**: Updated all configuration files to use port 5000 consistently
+- **Status**: API now responds with 200 OK, production mode configuration completed
+
+## Deployment Files Updated
+- `deployment/nginx.conf` - Fixed proxy_pass to localhost:5000
+- `deployment/ecosystem.config.js` - Updated to port 5000
+- `deployment/ecosystem.config.cjs` - Created CommonJS version for PM2 compatibility
+- `deployment/production.env` - Set PORT=5000
+- Added comprehensive troubleshooting guides and quick-start scripts
+
 # System Architecture
 
 ## Frontend Architecture
