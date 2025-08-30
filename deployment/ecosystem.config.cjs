@@ -1,12 +1,12 @@
-// PM2 Ecosystem Configuration for Production Deployment
+// PM2 Ecosystem Configuration for Production Deployment (CommonJS format)
 
-export default {
+module.exports = {
   apps: [
     {
       name: 'mygroup-app',
       script: './dist/index.js',
       cwd: '/home/ubuntu/MyGroupFullStak',
-      instances: 1, // Start with 1 instance
+      instances: 1,
       exec_mode: 'fork',
       env: {
         NODE_ENV: 'development',
@@ -38,18 +38,5 @@ export default {
       health_check_grace_period: 3000,
       health_check_fatal_exceptions: true
     }
-  ],
-
-  deploy: {
-    production: {
-      user: 'ubuntu',
-      host: 'your-ec2-public-ip',
-      ref: 'origin/main',
-      repo: 'https://github.com/your-username/your-repo.git',
-      path: '/home/ubuntu/MyGroupFullStack',
-      'pre-deploy-local': '',
-      'post-deploy': 'npm install && pm2 reload ecosystem.config.js --env production',
-      'pre-setup': ''
-    }
-  }
+  ]
 };
