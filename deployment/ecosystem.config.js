@@ -21,10 +21,10 @@ export default {
         DB_PASSWORD: 'MyGroup@2025',
         DB_NAME: 'my_group'
       },
-      // Logging
-      log_file: '/var/log/pm2/apphub-backend.log',
-      out_file: '/var/log/pm2/apphub-backend-out.log',
-      error_file: '/var/log/pm2/apphub-backend-error.log',
+      // Logging - use home directory to avoid permission issues
+      log_file: '/home/ubuntu/MyGroupFullStak/logs/apphub-backend.log',
+      out_file: '/home/ubuntu/MyGroupFullStak/logs/apphub-backend-out.log',
+      error_file: '/home/ubuntu/MyGroupFullStak/logs/apphub-backend-error.log',
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
       
       // Auto-restart configuration
