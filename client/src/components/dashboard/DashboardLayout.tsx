@@ -4,9 +4,10 @@ import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 
 interface SubMenuItem {
-  id: number;
-  name: string;
+  icon: string;
+  label: string;
   path?: string;
+  active?: boolean;
 }
 
 interface MenuItem {
@@ -14,8 +15,7 @@ interface MenuItem {
   label: string;
   path?: string;
   active?: boolean;
-  hasSubmenu?: boolean;
-  submenuItems?: SubMenuItem[];
+  subItems?: SubMenuItem[];
 }
 
 interface DashboardLayoutProps {
@@ -71,8 +71,12 @@ export default function DashboardLayout({ title, userRole, menuItems, children }
     if (item.label === 'Categories') {
       return {
         ...item,
-        hasSubmenu: true,
-        submenuItems: categoriesQuery.data || []
+        subItems: categoriesQuery.data?.map((cat: any) => ({
+          icon: 'bi-app',
+          label: cat.name,
+          path: `/dashboard/admin/categories/${cat.id}`,
+          active: false
+        })) || []
       };
     }
     return item;
@@ -125,7 +129,7 @@ export default function DashboardLayout({ title, userRole, menuItems, children }
           <ul className="nav nav-pills flex-column p-3">
             {enhancedMenuItems.map((item, index) => (
               <li key={index} className="nav-item mb-1">
-                {item.hasSubmenu ? (
+                {item.subItems && item.subItems.length > 0 ? (
                   // Menu item with submenu
                   <div>
                     <a
@@ -151,11 +155,11 @@ export default function DashboardLayout({ title, userRole, menuItems, children }
                     {/* Submenu */}
                     {!sidebarCollapsed && expandedMenus.has(item.label) && (
                       <ul className="nav nav-pills flex-column ms-3 mt-2">
-                        {item.submenuItems?.map((subItem) => (
-                          <li key={subItem.id} className="nav-item mb-1">
+                        {item.subItems?.map((subItem, subIndex) => (
+                          <li key={subIndex} className="nav-item mb-1">
                             <a
                               href="#"
-                              className="nav-link d-flex align-items-center text-white-50 py-2"
+                              className={`nav-link d-flex align-items-center text-white-50 py-2 ${subItem.active ? 'active' : ''}`}
                               onClick={(e) => {
                                 e.preventDefault();
                                 if (subItem.path) {
@@ -164,8 +168,8 @@ export default function DashboardLayout({ title, userRole, menuItems, children }
                               }}
                               style={{ fontSize: '0.9rem' }}
                             >
-                              <i className="bi bi-dot me-2" style={{ minWidth: '16px' }}></i>
-                              <span>{subItem.name}</span>
+                              <i className={`${subItem.icon} me-2`} style={{ minWidth: '16px' }}></i>
+                              <span>{subItem.label}</span>
                             </a>
                           </li>
                         ))}

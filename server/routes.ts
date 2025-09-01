@@ -34,6 +34,14 @@ declare module 'express' {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Initialize groups and users_groups tables
+  try {
+    await mysqlStorage.seedGroupsAndUsers();
+    console.log("✅ Groups and users seeded successfully");
+  } catch (error) {
+    console.error("❌ Error seeding groups and users:", error);
+  }
+
   // Test route
   app.get("/api/test", (req, res) => {
     res.json({ message: "API is working!" });
@@ -76,22 +84,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Regular user authentication (fallback to in-memory storage)
+  // Regular user authentication with group-based role determination
   app.post("/api/auth/login", async (req, res) => {
     try {
       const { username, password } = loginSchema.parse(req.body);
 
-      // Try MySQL storage first
+      // Try MySQL storage first with group-based authentication
       const mysqlUser = await mysqlStorage.authenticateUser(username, password);
       if (mysqlUser) {
-        req.session.userId = mysqlUser.id;
-        req.session.userRole = 'user';
+        // Get user role based on group membership using the SQL query provided
+        const userWithRole = await mysqlStorage.getUserWithRole(mysqlUser.id);
 
-        const { password: _, salt: __, ...userWithoutPassword } = mysqlUser;
-        return res.json({
-          user: userWithoutPassword,
-          message: "Login successful"
-        });
+        if (userWithRole) {
+          req.session.userId = mysqlUser.id;
+          req.session.userRole = userWithRole.role || 'user';
+
+          const { password: _, salt: __, ...userWithoutPassword } = mysqlUser;
+          return res.json({
+            user: {
+              ...userWithoutPassword,
+              role: userWithRole.role,
+              firstName: userWithoutPassword.firstName || userWithRole.firstName,
+              company: userWithoutPassword.company || userWithRole.company
+            },
+            message: "Login successful"
+          });
+        } else {
+          // User exists but has no group assignment, default to 'user' role
+          req.session.userId = mysqlUser.id;
+          req.session.userRole = 'user';
+
+          const { password: _, salt: __, ...userWithoutPassword } = mysqlUser;
+          return res.json({
+            user: {
+              ...userWithoutPassword,
+              role: 'user'
+            },
+            message: "Login successful"
+          });
+        }
       }
 
       // Fallback to in-memory storage
@@ -247,6 +278,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Registration error:", error);
       res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // ===== ADMIN USER MANAGEMENT API ROUTES =====
+
+  // Get all users for admin dashboard
+  app.get("/api/admin/users", async (req, res) => {
+    try {
+      // Check admin authentication
+      if (!req.session.userId || req.session.userRole !== 'admin') {
+        return res.status(401).json({ error: "Admin authentication required" });
+      }
+
+      // Get all users from MySQL storage
+      const users = await mysqlStorage.getAllUsers();
+      res.json(users);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ error: "Failed to fetch users" });
+    }
+  });
+
+  // Delete user
+  app.delete("/api/admin/users/:id", async (req, res) => {
+    try {
+      // Check admin authentication
+      if (!req.session.userId || req.session.userRole !== 'admin') {
+        return res.status(401).json({ error: "Admin authentication required" });
+      }
+
+      const userId = parseInt(req.params.id);
+      const success = await mysqlStorage.deleteUser(userId);
+
+      if (success) {
+        res.json({ message: "User deleted successfully" });
+      } else {
+        res.status(404).json({ error: "User not found" });
+      }
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      res.status(500).json({ error: "Failed to delete user" });
     }
   });
 
@@ -644,11 +716,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
           company: null,
         },
         {
+          username: "head_office",
+          firstName: "Head Office",
+          lastName: "Executive",
+          email: "headoffice@apphub.com",
+          phone: "1234567892",
+          password: "password",
+          role: "head_office",
+          gender: null,
+          dateOfBirth: null,
+          country: null,
+          state: null,
+          district: null,
+          education: null,
+          profession: null,
+          company: null,
+        },
+        {
           username: "regional",
           firstName: "Regional",
           lastName: "Manager",
           email: "regional@apphub.com",
-          phone: "1234567892",
+          phone: "1234567893",
           password: "password",
           role: "regional",
           gender: null,
@@ -665,7 +754,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           firstName: "Branch",
           lastName: "Manager",
           email: "branch@apphub.com",
-          phone: "1234567893",
+          phone: "1234567894",
           password: "password",
           role: "branch",
           gender: null,
@@ -1129,6 +1218,318 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting category:", error);
       res.status(500).json({ error: "Failed to delete category" });
+    }
+  });
+
+  // ===== LANGUAGE, EDUCATION, PROFESSION API ROUTES =====
+
+  // Language Management Routes
+  app.get("/api/admin/languages", requireAdmin, async (req, res) => {
+    try {
+      // Mock data for now - replace with actual database queries
+      const languages = [
+        { id: 1, name: 'English', code: 'en', isActive: true, speakers: '1.5B' },
+        { id: 2, name: 'Spanish', code: 'es', isActive: true, speakers: '500M' },
+        { id: 3, name: 'Hindi', code: 'hi', isActive: true, speakers: '600M' },
+        { id: 4, name: 'Chinese', code: 'zh', isActive: false, speakers: '1.4B' },
+        { id: 5, name: 'French', code: 'fr', isActive: true, speakers: '280M' },
+      ];
+      res.json(languages);
+    } catch (error) {
+      console.error("Error fetching languages:", error);
+      res.status(500).json({ error: "Failed to fetch languages" });
+    }
+  });
+
+  app.post("/api/admin/languages", requireAdmin, async (req, res) => {
+    try {
+      const { name, code, isActive, speakers } = req.body;
+      // Mock response - replace with actual database insert
+      const newLanguage = {
+        id: Date.now(),
+        name,
+        code,
+        isActive: isActive || true,
+        speakers: speakers || '0'
+      };
+      res.status(201).json(newLanguage);
+    } catch (error) {
+      console.error("Error creating language:", error);
+      res.status(500).json({ error: "Failed to create language" });
+    }
+  });
+
+  // Education Management Routes
+  app.get("/api/admin/education", requireAdmin, async (req, res) => {
+    try {
+      // Mock data for now - replace with actual database queries
+      const education = [
+        { id: 1, level: 'High School', isActive: true, users: 2450 },
+        { id: 2, level: 'Bachelor\'s Degree', isActive: true, users: 4230 },
+        { id: 3, level: 'Master\'s Degree', isActive: true, users: 2100 },
+        { id: 4, level: 'PhD/Doctorate', isActive: true, users: 890 },
+        { id: 5, level: 'Professional Certificate', isActive: true, users: 1560 },
+      ];
+      res.json(education);
+    } catch (error) {
+      console.error("Error fetching education levels:", error);
+      res.status(500).json({ error: "Failed to fetch education levels" });
+    }
+  });
+
+  app.post("/api/admin/education", requireAdmin, async (req, res) => {
+    try {
+      const { level, isActive } = req.body;
+      // Mock response - replace with actual database insert
+      const newEducation = {
+        id: Date.now(),
+        level,
+        isActive: isActive || true,
+        users: 0
+      };
+      res.status(201).json(newEducation);
+    } catch (error) {
+      console.error("Error creating education level:", error);
+      res.status(500).json({ error: "Failed to create education level" });
+    }
+  });
+
+  // Profession Management Routes
+  app.get("/api/admin/professions", requireAdmin, async (req, res) => {
+    try {
+      // Mock data for now - replace with actual database queries
+      const professions = [
+        { id: 1, name: 'Software Engineer', category: 'Technology', isActive: true, users: 1850 },
+        { id: 2, name: 'Marketing Manager', category: 'Marketing', isActive: true, users: 920 },
+        { id: 3, name: 'Data Scientist', category: 'Technology', isActive: true, users: 650 },
+        { id: 4, name: 'Product Manager', category: 'Management', isActive: true, users: 480 },
+        { id: 5, name: 'Sales Representative', category: 'Sales', isActive: true, users: 1200 },
+      ];
+      res.json(professions);
+    } catch (error) {
+      console.error("Error fetching professions:", error);
+      res.status(500).json({ error: "Failed to fetch professions" });
+    }
+  });
+
+  app.post("/api/admin/professions", requireAdmin, async (req, res) => {
+    try {
+      const { name, category, isActive } = req.body;
+      // Mock response - replace with actual database insert
+      const newProfession = {
+        id: Date.now(),
+        name,
+        category,
+        isActive: isActive || true,
+        users: 0
+      };
+      res.status(201).json(newProfession);
+    } catch (error) {
+      console.error("Error creating profession:", error);
+      res.status(500).json({ error: "Failed to create profession" });
+    }
+  });
+
+  // ===== CORPORATE USERS API ROUTES =====
+
+  // Get all corporate users
+  app.get("/api/admin/corporate-users", requireAdmin, async (req, res) => {
+    try {
+      // Mock data for now - replace with actual database queries
+      const corporateUsers = [
+        {
+          id: 1,
+          name: 'John Corporate',
+          mobile: '+1234567890',
+          email: 'john@corporate.com',
+          username: 'johncorp',
+          created_at: '2024-01-15T10:00:00Z',
+          is_active: true
+        },
+        {
+          id: 2,
+          name: 'Jane Business',
+          mobile: '+1234567891',
+          email: 'jane@business.com',
+          username: 'janebiz',
+          created_at: '2024-02-20T11:30:00Z',
+          is_active: true
+        }
+      ];
+      res.json(corporateUsers);
+    } catch (error) {
+      console.error("Error fetching corporate users:", error);
+      res.status(500).json({ error: "Failed to fetch corporate users" });
+    }
+  });
+
+  // Create corporate user
+  app.post("/api/admin/corporate-users", requireAdmin, async (req, res) => {
+    try {
+      const { name, mobile, email, username, password } = req.body;
+      // Mock response - replace with actual database insert
+      const newUser = {
+        id: Date.now(),
+        name,
+        mobile,
+        email,
+        username,
+        created_at: new Date().toISOString(),
+        is_active: true
+      };
+      res.status(201).json(newUser);
+    } catch (error) {
+      console.error("Error creating corporate user:", error);
+      res.status(500).json({ error: "Failed to create corporate user" });
+    }
+  });
+
+  // Update corporate user
+  app.put("/api/admin/corporate-users/:id", requireAdmin, async (req, res) => {
+    try {
+      const userId = parseInt(req.params.id);
+      const { name, mobile, email, username, password } = req.body;
+      // Mock response - replace with actual database update
+      const updatedUser = {
+        id: userId,
+        name,
+        mobile,
+        email,
+        username,
+        created_at: '2024-01-15T10:00:00Z',
+        is_active: true
+      };
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Error updating corporate user:", error);
+      res.status(500).json({ error: "Failed to update corporate user" });
+    }
+  });
+
+  // Reset corporate user password
+  app.post("/api/admin/corporate-users/:id/reset-password", requireAdmin, async (req, res) => {
+    try {
+      const userId = parseInt(req.params.id);
+      // Mock response - replace with actual password reset logic
+      res.json({ message: "Password reset successfully", temporaryPassword: "temp123" });
+    } catch (error) {
+      console.error("Error resetting password:", error);
+      res.status(500).json({ error: "Failed to reset password" });
+    }
+  });
+
+  // ===== ADMIN SETTINGS API ROUTES =====
+
+  // Check if app account exists
+  app.get("/api/admin/app-accounts/check/:id", requireAdmin, async (req, res) => {
+    try {
+      const appId = parseInt(req.params.id);
+      // Mock response - replace with actual database check
+      // For now, randomly return true/false to simulate existing accounts
+      const exists = Math.random() > 0.5; // This should be replaced with actual DB query
+      res.json({ exists });
+    } catch (error) {
+      console.error("Error checking app account:", error);
+      res.status(500).json({ error: "Failed to check app account" });
+    }
+  });
+
+  // Reset app account password to 'mygroup123'
+  app.post("/api/admin/app-accounts/:id/reset-password", requireAdmin, async (req, res) => {
+    try {
+      const appId = parseInt(req.params.id);
+      // Mock response - replace with actual password reset logic
+      res.json({ message: "App account password reset to 'mygroup123' successfully" });
+    } catch (error) {
+      console.error("Error resetting app password:", error);
+      res.status(500).json({ error: "Failed to reset app password" });
+    }
+  });
+
+  // ===== CONTINENTS API ROUTES =====
+
+  // Get all continents
+  app.get("/api/admin/continents", requireAdmin, async (req, res) => {
+    try {
+      // Mock data - replace with actual database queries
+      const continents = [
+        { id: 1, continent: 'Asia', code: 'AS', created_at: '2024-01-15T10:00:00Z' },
+        { id: 2, continent: 'Europe', code: 'EU', created_at: '2024-01-16T10:00:00Z' },
+        { id: 3, continent: 'Africa', code: 'AF', created_at: '2024-01-17T10:00:00Z' },
+        { id: 4, continent: 'North America', code: 'NA', created_at: '2024-01-18T10:00:00Z' },
+        { id: 5, continent: 'South America', code: 'SA', created_at: '2024-01-19T10:00:00Z' },
+        { id: 6, continent: 'Australia', code: 'AU', created_at: '2024-01-20T10:00:00Z' },
+        { id: 7, continent: 'Antarctica', code: 'AN', created_at: '2024-01-21T10:00:00Z' }
+      ];
+      res.json(continents);
+    } catch (error) {
+      console.error("Error fetching continents:", error);
+      res.status(500).json({ error: "Failed to fetch continents" });
+    }
+  });
+
+  // Create continent
+  app.post("/api/admin/continents", requireAdmin, async (req, res) => {
+    try {
+      const { continent, code } = req.body;
+      const newContinent = {
+        id: Date.now(),
+        continent,
+        code,
+        created_at: new Date().toISOString()
+      };
+      res.status(201).json(newContinent);
+    } catch (error) {
+      console.error("Error creating continent:", error);
+      res.status(500).json({ error: "Failed to create continent" });
+    }
+  });
+
+  // Update continent
+  app.put("/api/admin/continents/:id", requireAdmin, async (req, res) => {
+    try {
+      const continentId = parseInt(req.params.id);
+      const { continent, code } = req.body;
+      const updatedContinent = {
+        id: continentId,
+        continent,
+        code,
+        created_at: '2024-01-15T10:00:00Z'
+      };
+      res.json(updatedContinent);
+    } catch (error) {
+      console.error("Error updating continent:", error);
+      res.status(500).json({ error: "Failed to update continent" });
+    }
+  });
+
+  // Delete continent
+  app.delete("/api/admin/continents/:id", requireAdmin, async (req, res) => {
+    try {
+      const continentId = parseInt(req.params.id);
+      res.json({ message: "Continent deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting continent:", error);
+      res.status(500).json({ error: "Failed to delete continent" });
+    }
+  });
+
+  // ===== LOGOUT API ROUTE =====
+
+  // Logout route
+  app.post("/api/auth/logout", async (req, res) => {
+    try {
+      req.session.destroy((err) => {
+        if (err) {
+          console.error("Error destroying session:", err);
+          return res.status(500).json({ error: "Failed to logout" });
+        }
+        res.clearCookie('connect.sid');
+        res.json({ message: "Logged out successfully" });
+      });
+    } catch (error) {
+      console.error("Logout error:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
   });
 

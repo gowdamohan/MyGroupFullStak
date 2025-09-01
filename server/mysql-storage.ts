@@ -44,7 +44,10 @@ export interface IMySQLStorage {
   createUser(user: Partial<InsertUser>): Promise<User>;
   verifyPassword(password: string, hashedPassword: string): Promise<boolean>;
   authenticateUser(username: string, password: string): Promise<User | null>;
+  getUserWithRole(userId: number): Promise<any>;
   isAdmin(userId: number): Promise<boolean>;
+  getAllUsers(): Promise<any[]>;
+  deleteUser(userId: number): Promise<boolean>;
 }
 
 export class MySQLStorage implements IMySQLStorage {
@@ -152,16 +155,36 @@ export class MySQLStorage implements IMySQLStorage {
     }
   }
 
+  async getUserWithRole(userId: number): Promise<any> {
+    try {
+      // Use the SQL query provided to get user with role based on group membership
+      const query = `
+        SELECT u.username, u.first_name, u.company, g.name as role
+        FROM users u
+        JOIN users_groups ug ON u.id = ug.user_id
+        JOIN \`groups\` g ON g.id = ug.group_id
+        WHERE u.active = 1 AND u.id = ?
+      `;
+
+      const [rows] = await connection.execute(query, [userId]);
+      return (rows as any[])[0] || null;
+    } catch (error) {
+      console.error("Error getting user with role:", error);
+      return null;
+    }
+  }
+
   async isAdmin(userId: number): Promise<boolean> {
     try {
-      const user = await this.getUser(userId);
-      if (!user) {
-        return false;
+      const userWithRole = await this.getUserWithRole(userId);
+      if (!userWithRole) {
+        // Fallback to checking username for admin
+        const user = await this.getUser(userId);
+        return user?.username === 'admin';
       }
 
-      // Check if user is in admin group (assuming group ID 1 is admin)
-      // You can modify this logic based on your specific admin identification
-      return user.groupId === 1 || user.username === 'admin';
+      // Check if user is in admin group
+      return userWithRole.role === 'admin';
     } catch (error) {
       console.error("Error checking admin status:", error);
       return false;
@@ -176,6 +199,136 @@ export class MySQLStorage implements IMySQLStorage {
     } catch (error) {
       console.error("❌ MySQL storage connection test failed:", error);
       return false;
+    }
+  }
+
+  async getAllUsers(): Promise<any[]> {
+    try {
+      const query = `
+        SELECT
+          u.id,
+          u.username,
+          u.email,
+          u.first_name,
+          u.last_name,
+          u.phone,
+          u.company,
+          u.active as is_active,
+          u.created_on,
+          u.last_login,
+          g.name as role_name
+        FROM users u
+        LEFT JOIN users_groups ug ON u.id = ug.user_id
+        LEFT JOIN \`groups\` g ON ug.group_id = g.id
+        WHERE u.active = 1
+        ORDER BY u.created_on DESC
+      `;
+
+      const [rows] = await connection.execute(query);
+      return rows as any[];
+    } catch (error) {
+      console.error("Error fetching all users:", error);
+      throw error;
+    }
+  }
+
+  async deleteUser(userId: number): Promise<boolean> {
+    try {
+      // Soft delete by setting active = 0
+      const [result] = await connection.execute(
+        'UPDATE users SET active = 0 WHERE id = ?',
+        [userId]
+      );
+
+      return (result as any).affectedRows > 0;
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      throw error;
+    }
+  }
+
+  async seedGroupsAndUsers(): Promise<void> {
+    try {
+      // Create groups table if it doesn't exist
+      await connection.execute(`
+        CREATE TABLE IF NOT EXISTS \`groups\` (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          name VARCHAR(20) NOT NULL,
+          description VARCHAR(100) NOT NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      `);
+
+      // Create users_groups table if it doesn't exist
+      await connection.execute(`
+        CREATE TABLE IF NOT EXISTS users_groups (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          user_id INT NOT NULL,
+          group_id INT NOT NULL,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+          FOREIGN KEY (group_id) REFERENCES \`groups\`(id) ON DELETE CASCADE,
+          UNIQUE KEY unique_user_group (user_id, group_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      `);
+
+      // Check if groups exist
+      const [groupRows] = await connection.execute('SELECT COUNT(*) as count FROM `groups`');
+
+      if ((groupRows as any[])[0].count === 0) {
+        // Insert default groups
+        const defaultGroups = [
+          ['admin', 'System Administrator'],
+          ['corporate', 'Corporate Manager'],
+          ['head_office', 'Head Office Manager'],
+          ['regional', 'Regional Manager'],
+          ['branch', 'Branch Manager'],
+          ['user', 'Regular User']
+        ];
+
+        for (const [name, description] of defaultGroups) {
+          await connection.execute(
+            'INSERT INTO `groups` (name, description) VALUES (?, ?)',
+            [name, description]
+          );
+        }
+        console.log('✅ Default groups created successfully');
+      }
+
+      // Check if demo users exist and create group associations
+      const demoUsers = ['admin', 'corporate', 'head_office', 'regional', 'branch'];
+
+      for (const username of demoUsers) {
+        const [userRows] = await connection.execute('SELECT id FROM users WHERE username = ?', [username]);
+
+        if ((userRows as any[]).length > 0) {
+          const userId = (userRows as any[])[0].id;
+
+          // Get the group ID for this user's role
+          const [groupRows] = await connection.execute('SELECT id FROM `groups` WHERE name = ?', [username]);
+
+          if ((groupRows as any[]).length > 0) {
+            const groupId = (groupRows as any[])[0].id;
+
+            // Check if association already exists
+            const [existingRows] = await connection.execute(
+              'SELECT COUNT(*) as count FROM users_groups WHERE user_id = ? AND group_id = ?',
+              [userId, groupId]
+            );
+
+            if ((existingRows as any[])[0].count === 0) {
+              // Create the association
+              await connection.execute(
+                'INSERT INTO users_groups (user_id, group_id) VALUES (?, ?)',
+                [userId, groupId]
+              );
+              console.log(`✅ Associated user ${username} with group ${username}`);
+            }
+          }
+        }
+      }
+
+    } catch (error) {
+      console.error("Error seeding groups and users:", error);
+      throw error;
     }
   }
 

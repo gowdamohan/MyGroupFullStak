@@ -36,6 +36,9 @@ export default function LoginPage() {
         case 'corporate':
           setLocation('/dashboard/corporate');
           break;
+        case 'head_office':
+          setLocation('/dashboard/head-office');
+          break;
         case 'regional':
           setLocation('/dashboard/regional');
           break;
@@ -180,6 +183,10 @@ export default function LoginPage() {
                     <div className="col-6">
                       <p className="mb-1"><strong>Corporate:</strong></p>
                       <p className="mb-0">corporate / password</p>
+                    </div>
+                    <div className="col-6">
+                      <p className="mb-1"><strong>Head Office:</strong></p>
+                      <p className="mb-0">head_office / password</p>
                     </div>
                     <div className="col-6">
                       <p className="mb-1"><strong>Regional:</strong></p>
