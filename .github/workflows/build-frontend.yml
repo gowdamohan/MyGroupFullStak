@@ -75,12 +75,12 @@ jobs:
           source: "dist/*"
           target: "/var/www/html"
 
-      - - name: Reload Nginx
-          uses: appleboy/ssh-action@v1.0.0
-          with:
-            host: ${{ secrets.EC2_HOST }}
-            username: ubuntu
-            key: ${{ secrets.EC2_SSH_KEY }}
-            script: |
+      - name: Reload Nginx
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
               sudo systemctl reload nginx
 
