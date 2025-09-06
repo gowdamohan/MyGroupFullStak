@@ -18,7 +18,7 @@ export default {
         DB_HOST: 'localhost',
         DB_PORT: 3306,
         DB_USER: 'root',
-        DB_PASSWORD: 'MyGroup@2025',
+        DB_PASSWORD: 'MyGroup@2025!',
         DB_NAME: 'my_group'
       },
       // Logging - use home directory to avoid permission issues
