@@ -6,7 +6,7 @@ const dbConfig = {
   port: 3306,
   user: 'root',
   password: 'admin', // Using the port as password as specified
-  database: 'my_group'
+  database: 'MyGroup@2025!'
 };
 
 export async function testMySQLConnection() {
