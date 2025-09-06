@@ -93,6 +93,6 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd /home/ubuntu/MyGroupFullStak/server
-            npm install --production
+            npm install --omit=dev
             pm2 restart all
             sudo systemctl reload nginx
