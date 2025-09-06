@@ -6,6 +6,7 @@ const UserRegistrationData = require('../models/UserRegistrationData');
 
 class AuthController {
   // Admin Login
+  //added simple new line
   static async adminLogin(req, res) {
     try {
       const { username, password } = req.body;
