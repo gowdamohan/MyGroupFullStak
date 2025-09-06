@@ -75,13 +75,12 @@ jobs:
           source: "dist/*"
           target: "/var/www/html"
 
-      - name: Restart Node server
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            cd /home/ubuntu/MyGroupFullStak/server
-            npm install --production
-            pm2 restart all
+      - - name: Reload Nginx
+          uses: appleboy/ssh-action@v1.0.0
+          with:
+            host: ${{ secrets.EC2_HOST }}
+            username: ubuntu
+            key: ${{ secrets.EC2_SSH_KEY }}
+            script: |
+              sudo systemctl reload nginx
+
