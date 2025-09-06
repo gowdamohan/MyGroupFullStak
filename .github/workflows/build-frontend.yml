@@ -1,4 +1,4 @@
-name: CI - Build & Deploy (Frontend + Backend)
+name: CI - Build & Deploy
 
 on:
   push:
@@ -21,30 +21,23 @@ jobs:
 
       - name: Install dependencies
         run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm i
-          fi
+          npm ci
 
-      # Build React frontend
       - name: Build React (Vite)
         run: npm run build:web
 
-      # Move frontend build into a safe place
-      - name: Save frontend build
+      - name: Upload backend
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-backend
+          path: server
+          if-no-files-found: error
+
+      - name: Upload frontend dist
         uses: actions/upload-artifact@v4
         with:
           name: frontend-dist
           path: dist
-          if-no-files-found: error
-
-      # Save backend code (server folder)
-      - name: Save backend
-        uses: actions/upload-artifact@v4
-        with:
-          name: backend
-          path: server
           if-no-files-found: error
 
   deploy:
@@ -52,19 +45,18 @@ jobs:
     needs: build
 
     steps:
-      - name: Download frontend
+      - name: Download backend artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: server-backend
+          path: server
+
+      - name: Download frontend artifact
         uses: actions/download-artifact@v4
         with:
           name: frontend-dist
           path: dist
 
-      - name: Download backend
-        uses: actions/download-artifact@v4
-        with:
-          name: backend
-          path: server
-
-      # Deploy backend to EC2
       - name: Deploy backend to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -74,7 +66,6 @@ jobs:
           source: "server/*"
           target: "/home/ubuntu/MyGroupFullStak/server"
 
-      # Deploy frontend to Nginx
       - name: Deploy frontend to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -84,15 +75,12 @@ jobs:
           source: "dist/*"
           target: "/var/www/html"
 
-      # Restart services
-      - name: Restart Backend + Reload Nginx
+      - name: Reload Nginx
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            cd /home/ubuntu/MyGroupFullStak/server
-            npm install --omit=dev
-            pm2 restart all
-            sudo systemctl reload nginx
+              sudo systemctl reload nginx
+
