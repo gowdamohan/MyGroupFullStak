@@ -171,6 +171,16 @@ export const districtTbl = mysqlTable("district_tbl", {
   code: varchar("code", { length: 45 }),
 });
 
+export const languageTbl = mysqlTable("language", {
+  id: int("id").primaryKey().autoincrement(),
+  name: varchar("name", { length: 100 }).notNull(),
+  code: varchar("code", { length: 10 }).notNull(),
+  isActive: tinyint("is_active").default(1),
+  speakers: varchar("speakers", { length: 50 }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
 // Content Management Schemas
 export const continentSchema = z.object({
   continent: z.string().min(1, "Continent name is required"),
@@ -207,6 +217,13 @@ export const districtSchema = z.object({
   code: z.string().min(1, "District code is required").max(45),
 });
 
+export const languageSchema = z.object({
+  name: z.string().min(1, "Language name is required"),
+  code: z.string().min(1, "Language code is required").max(10),
+  isActive: z.number().default(1),
+  speakers: z.string().optional(),
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type Group = typeof groups.$inferSelect;
@@ -228,8 +245,11 @@ export type State = typeof stateTbl.$inferSelect;
 export type InsertState = typeof stateTbl.$inferInsert;
 export type District = typeof districtTbl.$inferSelect;
 export type InsertDistrict = typeof districtTbl.$inferInsert;
+export type Language = typeof languageTbl.$inferSelect;
+export type InsertLanguage = typeof languageTbl.$inferInsert;
 
 export type ContinentInput = z.infer<typeof continentSchema>;
 export type CountryInput = z.infer<typeof countrySchema>;
 export type StateInput = z.infer<typeof stateSchema>;
 export type DistrictInput = z.infer<typeof districtSchema>;
+export type LanguageInput = z.infer<typeof languageSchema>;

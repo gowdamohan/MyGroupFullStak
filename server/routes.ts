@@ -1226,36 +1226,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Language Management Routes
   app.get("/api/admin/languages", requireAdmin, async (req, res) => {
     try {
-      // Mock data for now - replace with actual database queries
-      const languages = [
-        { id: 1, name: 'English', code: 'en', isActive: true, speakers: '1.5B' },
-        { id: 2, name: 'Spanish', code: 'es', isActive: true, speakers: '500M' },
-        { id: 3, name: 'Hindi', code: 'hi', isActive: true, speakers: '600M' },
-        { id: 4, name: 'Chinese', code: 'zh', isActive: false, speakers: '1.4B' },
-        { id: 5, name: 'French', code: 'fr', isActive: true, speakers: '280M' },
-      ];
+      console.log("🌐 API: Fetching all languages");
+      const languages = await mysqlStorage.getAllLanguages();
+      console.log("🌐 API: Languages fetched:", languages.length);
       res.json(languages);
     } catch (error) {
-      console.error("Error fetching languages:", error);
+      console.error("🌐 API: Error fetching languages:", error);
       res.status(500).json({ error: "Failed to fetch languages" });
+    }
+  });
+
+  // Get language by ID
+  app.get("/api/admin/languages/:id", requireAdmin, async (req, res) => {
+    try {
+      const languageId = parseInt(req.params.id);
+      const language = await mysqlStorage.getLanguageById(languageId);
+
+      if (!language) {
+        return res.status(404).json({ error: "Language not found" });
+      }
+
+      res.json(language);
+    } catch (error) {
+      console.error("Error fetching language:", error);
+      res.status(500).json({ error: "Failed to fetch language" });
     }
   });
 
   app.post("/api/admin/languages", requireAdmin, async (req, res) => {
     try {
-      const { name, code, isActive, speakers } = req.body;
-      // Mock response - replace with actual database insert
-      const newLanguage = {
-        id: Date.now(),
-        name,
-        code,
-        isActive: isActive || true,
-        speakers: speakers || '0'
-      };
+      console.log("🌐 API: Creating language:", req.body);
+      const languageData = req.body;
+
+      // Validate required fields
+      if (!languageData.name || !languageData.code) {
+        return res.status(400).json({ error: "Name and code are required" });
+      }
+
+      const newLanguage = await mysqlStorage.createLanguage(languageData);
+      console.log("🌐 API: Language created:", newLanguage);
       res.status(201).json(newLanguage);
     } catch (error) {
-      console.error("Error creating language:", error);
+      console.error("🌐 API: Error creating language:", error);
       res.status(500).json({ error: "Failed to create language" });
+    }
+  });
+
+  // Update language
+  app.put("/api/admin/languages/:id", requireAdmin, async (req, res) => {
+    try {
+      const languageId = parseInt(req.params.id);
+      const languageData = req.body;
+
+      console.log("🌐 API: Updating language:", languageId, languageData);
+
+      const updatedLanguage = await mysqlStorage.updateLanguage(languageId, languageData);
+
+      if (!updatedLanguage) {
+        return res.status(404).json({ error: "Language not found" });
+      }
+
+      console.log("🌐 API: Language updated:", updatedLanguage);
+      res.json(updatedLanguage);
+    } catch (error) {
+      console.error("🌐 API: Error updating language:", error);
+      res.status(500).json({ error: "Failed to update language" });
+    }
+  });
+
+  // Delete language
+  app.delete("/api/admin/languages/:id", requireAdmin, async (req, res) => {
+    try {
+      const languageId = parseInt(req.params.id);
+      console.log("🌐 API: Deleting language:", languageId);
+
+      const deleted = await mysqlStorage.deleteLanguage(languageId);
+
+      if (!deleted) {
+        return res.status(404).json({ error: "Language not found" });
+      }
+
+      console.log("🌐 API: Language deleted successfully");
+      res.json({ message: "Language deleted successfully" });
+    } catch (error) {
+      console.error("🌐 API: Error deleting language:", error);
+      res.status(500).json({ error: "Failed to delete language" });
     }
   });
 

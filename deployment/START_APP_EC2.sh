@@ -20,8 +20,16 @@ export DB_NAME=my_group
 echo "2. Installing dependencies..."
 npm install
 
-echo "3. Building the application..."
-npm run build
+echo "3. Building the application with memory optimization..."
+# Use the build hanging fix script
+if [ -f "deployment/fix-build-hanging.sh" ]; then
+    chmod +x deployment/fix-build-hanging.sh
+    ./deployment/fix-build-hanging.sh
+else
+    # Fallback to manual build with memory limits
+    export NODE_OPTIONS="--max-old-space-size=2048"
+    npm run build:production || npm run build
+fi
 
 echo "4. Checking build output..."
 ls -la dist/

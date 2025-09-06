@@ -174,7 +174,7 @@ export default function EducationManagement({ className = "" }: EducationManagem
       key: 'users',
       header: 'Users',
       sortable: true,
-      render: (education) => education.users.toLocaleString(),
+      render: (education) => (education.users || 0).toLocaleString(),
     },
     {
       key: 'isActive',

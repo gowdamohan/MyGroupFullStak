@@ -38,9 +38,16 @@ cd /home/ubuntu/MyGroupFullStak
 # Pull latest changes
 git pull origin main
 
-# Install dependencies and build
+# Install dependencies and build (with build hanging fix)
 npm install
-npm run build
+
+# Option 1: Use the automated fix script (recommended)
+chmod +x deployment/fix-build-hanging.sh
+./deployment/fix-build-hanging.sh
+
+# Option 2: Manual build with memory optimization
+export NODE_OPTIONS="--max-old-space-size=2048"
+npm run build:production
 
 # Set up environment variables
 cp deployment/production.env .env
@@ -103,6 +110,12 @@ curl -X POST http://13.203.76.188/api/auth/login \
 ## Troubleshooting
 
 ### Common Issues
+
+**Build Hanging Issues:**
+- Run the automated fix: `./deployment/fix-build-hanging.sh`
+- Check available memory: `free -h`
+- Create swap file if memory < 2GB: `sudo fallocate -l 2G /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile`
+- Use memory-optimized build: `NODE_OPTIONS="--max-old-space-size=2048" npm run build:production`
 
 **404 API Errors:**
 - Check nginx configuration has `proxy_pass http://localhost:5000`

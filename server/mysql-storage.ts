@@ -11,6 +11,7 @@ import {
   countryTbl,
   stateTbl,
   districtTbl,
+  languageTbl,
   type User,
   type InsertUser,
   type GroupCreate,
@@ -25,10 +26,13 @@ import {
   type InsertState,
   type District,
   type InsertDistrict,
+  type Language,
+  type InsertLanguage,
   type ContinentInput,
   type CountryInput,
   type StateInput,
-  type DistrictInput
+  type DistrictInput,
+  type LanguageInput
 } from "@shared/schema";
 import bcrypt from "bcryptjs";
 import { dbConfig } from "./mysql-connection.js";
@@ -249,6 +253,19 @@ export class MySQLStorage implements IMySQLStorage {
 
   async seedGroupsAndUsers(): Promise<void> {
     try {
+      // Create language table if it doesn't exist
+      await connection.execute(`
+        CREATE TABLE IF NOT EXISTS \`language\` (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          name VARCHAR(100) NOT NULL,
+          code VARCHAR(10) NOT NULL UNIQUE,
+          is_active TINYINT(1) DEFAULT 1,
+          speakers VARCHAR(50),
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      `);
+
       // Create groups table if it doesn't exist
       await connection.execute(`
         CREATE TABLE IF NOT EXISTS \`groups\` (
@@ -324,6 +341,32 @@ export class MySQLStorage implements IMySQLStorage {
             }
           }
         }
+      }
+
+      // Insert default languages if not exists
+      const [languageCount] = await connection.execute('SELECT COUNT(*) as count FROM language');
+      if ((languageCount as any[])[0].count === 0) {
+        const defaultLanguages = [
+          { name: 'English', code: 'en', is_active: 1, speakers: '1.5 Billion' },
+          { name: 'Spanish', code: 'es', is_active: 1, speakers: '500 Million' },
+          { name: 'Hindi', code: 'hi', is_active: 1, speakers: '600 Million' },
+          { name: 'Chinese (Mandarin)', code: 'zh', is_active: 1, speakers: '1.4 Billion' },
+          { name: 'French', code: 'fr', is_active: 1, speakers: '280 Million' },
+          { name: 'Arabic', code: 'ar', is_active: 1, speakers: '422 Million' },
+          { name: 'Bengali', code: 'bn', is_active: 1, speakers: '265 Million' },
+          { name: 'Portuguese', code: 'pt', is_active: 1, speakers: '260 Million' },
+          { name: 'Russian', code: 'ru', is_active: 1, speakers: '258 Million' },
+          { name: 'Japanese', code: 'ja', is_active: 1, speakers: '125 Million' }
+        ];
+
+        for (const lang of defaultLanguages) {
+          await connection.execute(
+            'INSERT INTO language (name, code, is_active, speakers) VALUES (?, ?, ?, ?)',
+            [lang.name, lang.code, lang.is_active, lang.speakers]
+          );
+        }
+
+        console.log('✅ Default languages seeded');
       }
 
     } catch (error) {
@@ -956,6 +999,193 @@ export class MySQLStorage implements IMySQLStorage {
       return (result as any).affectedRows > 0;
     } catch (error) {
       console.error("Error deleting category:", error);
+      throw error;
+    }
+  }
+
+  // Language Management Methods
+  async getAllLanguages(): Promise<any[]> {
+    try {
+      console.log("🌐 MySQL: Executing getAllLanguages query");
+
+      // First check what columns exist in the language table
+      try {
+        const [tableInfo] = await connection.execute('DESCRIBE language');
+        console.log("🔍 Current language table structure:", tableInfo);
+
+        const columns = (tableInfo as any[]).map(col => col.Field);
+        console.log("🔍 Available columns:", columns);
+
+        // If table doesn't have the right structure, fix it
+        if (!columns.includes('name')) {
+          console.log("⚠️ Language table missing 'name' column, recreating...");
+          await this.ensureLanguageTableExists();
+        }
+      } catch (error: any) {
+        if (error.code === 'ER_NO_SUCH_TABLE') {
+          console.log("🔍 Language table doesn't exist, creating...");
+          await this.ensureLanguageTableExists();
+        } else {
+          console.error("Error checking language table:", error);
+          throw error;
+        }
+      }
+
+      const [rows] = await connection.execute('SELECT * FROM language ORDER BY name');
+      console.log("🌐 MySQL: Query result:", rows);
+
+      // Map database fields to frontend expected format
+      const mappedRows = (rows as any[]).map(row => ({
+        id: row.id,
+        name: row.name,
+        code: row.code,
+        isActive: row.is_active || row.isActive,
+        speakers: row.speakers,
+        createdAt: row.created_at || row.createdAt,
+        updatedAt: row.updated_at || row.updatedAt
+      }));
+
+      return mappedRows;
+    } catch (error) {
+      console.error("🌐 MySQL: Error fetching languages:", error);
+      throw error;
+    }
+  }
+
+  async ensureLanguageTableExists(): Promise<void> {
+    try {
+      console.log("🔨 Dropping existing language table if it exists...");
+      await connection.execute('DROP TABLE IF EXISTS language');
+
+      // Create language table
+      console.log("🔨 Creating new language table...");
+      await connection.execute(`
+        CREATE TABLE \`language\` (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          name VARCHAR(100) NOT NULL,
+          code VARCHAR(10) NOT NULL UNIQUE,
+          is_active TINYINT(1) DEFAULT 1,
+          speakers VARCHAR(50),
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      `);
+
+      // Seed with default data
+      console.log("🌱 Seeding language table with default data...");
+      const defaultLanguages = [
+        { name: 'English', code: 'en', is_active: 1, speakers: '1.5 Billion' },
+        { name: 'Spanish', code: 'es', is_active: 1, speakers: '500 Million' },
+        { name: 'Hindi', code: 'hi', is_active: 1, speakers: '600 Million' },
+        { name: 'Chinese (Mandarin)', code: 'zh', is_active: 1, speakers: '1.4 Billion' },
+        { name: 'French', code: 'fr', is_active: 1, speakers: '280 Million' },
+        { name: 'Arabic', code: 'ar', is_active: 1, speakers: '422 Million' },
+        { name: 'Bengali', code: 'bn', is_active: 1, speakers: '265 Million' },
+        { name: 'Portuguese', code: 'pt', is_active: 1, speakers: '260 Million' },
+        { name: 'Russian', code: 'ru', is_active: 1, speakers: '258 Million' },
+        { name: 'Japanese', code: 'ja', is_active: 1, speakers: '125 Million' }
+      ];
+
+      for (const lang of defaultLanguages) {
+        await connection.execute(
+          'INSERT INTO language (name, code, is_active, speakers) VALUES (?, ?, ?, ?)',
+          [lang.name, lang.code, lang.is_active, lang.speakers]
+        );
+      }
+
+      console.log('✅ Language table created and seeded with default languages');
+    } catch (error) {
+      console.error("❌ Error ensuring language table exists:", error);
+      throw error;
+    }
+  }
+
+  async getLanguageById(id: number): Promise<any | null> {
+    try {
+      await this.ensureLanguageTableExists();
+      const [rows] = await connection.execute('SELECT * FROM language WHERE id = ?', [id]);
+      return (rows as any[])[0] || null;
+    } catch (error) {
+      console.error("Error fetching language by ID:", error);
+      throw error;
+    }
+  }
+
+  async createLanguage(languageData: LanguageInput): Promise<Language> {
+    try {
+      await this.ensureLanguageTableExists();
+      const [result] = await connection.execute(
+        'INSERT INTO language (name, code, is_active, speakers) VALUES (?, ?, ?, ?)',
+        [languageData.name, languageData.code, languageData.isActive || 1, languageData.speakers || null]
+      );
+
+      const [newLanguage] = await connection.execute('SELECT * FROM language WHERE id = ?', [(result as any).insertId]);
+      const row = (newLanguage as any[])[0];
+
+      // Map database fields to frontend expected format
+      return {
+        id: row.id,
+        name: row.name,
+        code: row.code,
+        isActive: row.is_active,
+        speakers: row.speakers,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      };
+    } catch (error) {
+      console.error("Error creating language:", error);
+      throw error;
+    }
+  }
+
+  async updateLanguage(id: number, languageData: Partial<LanguageInput>): Promise<Language | null> {
+    try {
+      await this.ensureLanguageTableExists();
+      const updateFields = [];
+      const updateValues = [];
+
+      if (languageData.name !== undefined) {
+        updateFields.push('name = ?');
+        updateValues.push(languageData.name);
+      }
+      if (languageData.code !== undefined) {
+        updateFields.push('code = ?');
+        updateValues.push(languageData.code);
+      }
+      if (languageData.isActive !== undefined) {
+        updateFields.push('is_active = ?');
+        updateValues.push(languageData.isActive);
+      }
+      if (languageData.speakers !== undefined) {
+        updateFields.push('speakers = ?');
+        updateValues.push(languageData.speakers);
+      }
+
+      if (updateFields.length === 0) {
+        return this.getLanguageById(id);
+      }
+
+      updateValues.push(id);
+      await connection.execute(
+        `UPDATE language SET ${updateFields.join(', ')} WHERE id = ?`,
+        updateValues
+      );
+
+      const [updatedLanguage] = await connection.execute('SELECT * FROM language WHERE id = ?', [id]);
+      return (updatedLanguage as any[])[0] || null;
+    } catch (error) {
+      console.error("Error updating language:", error);
+      throw error;
+    }
+  }
+
+  async deleteLanguage(id: number): Promise<boolean> {
+    try {
+      await this.ensureLanguageTableExists();
+      const [result] = await connection.execute('DELETE FROM language WHERE id = ?', [id]);
+      return (result as any).affectedRows > 0;
+    } catch (error) {
+      console.error("Error deleting language:", error);
       throw error;
     }
   }

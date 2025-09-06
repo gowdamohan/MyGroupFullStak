@@ -67,7 +67,13 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
-  const distPath = path.resolve(process.cwd(), "dist", "public");
+  // Check for CI/CD deployment structure first (server/dist)
+  let distPath = path.resolve(__dirname, "dist");
+
+  // Fallback to local development structure (dist/public)
+  if (!fs.existsSync(distPath)) {
+    distPath = path.resolve(process.cwd(), "dist", "public");
+  }
 
   if (!fs.existsSync(distPath)) {
     throw new Error(

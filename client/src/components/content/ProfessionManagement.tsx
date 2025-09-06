@@ -209,7 +209,7 @@ export default function ProfessionManagement({ className = "" }: ProfessionManag
       key: 'users',
       header: 'Users',
       sortable: true,
-      render: (profession) => profession.users.toLocaleString(),
+      render: (profession) => (profession.users || 0).toLocaleString(),
     },
     {
       key: 'isActive',
