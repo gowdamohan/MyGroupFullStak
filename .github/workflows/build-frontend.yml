@@ -1,4 +1,4 @@
-name: CI - Build & Deploy
+name: CI - Build & Deploy (Frontend + Backend)
 
 on:
   push:
@@ -27,15 +27,24 @@ jobs:
             npm i
           fi
 
+      # Build React frontend
       - name: Build React (Vite)
         run: npm run build:web
 
-      # Save dist/ as artifact
-      - name: Upload frontend build
+      # Move frontend build into a safe place
+      - name: Save frontend build
         uses: actions/upload-artifact@v4
         with:
           name: frontend-dist
           path: dist
+          if-no-files-found: error
+
+      # Save backend code (server folder)
+      - name: Save backend
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend
+          path: server
           if-no-files-found: error
 
   deploy:
@@ -43,14 +52,30 @@ jobs:
     needs: build
 
     steps:
-      - name: Download frontend build
+      - name: Download frontend
         uses: actions/download-artifact@v4
         with:
           name: frontend-dist
           path: dist
 
-      # Copy dist/ to /var/www/html/ on EC2
-      - name: Deploy frontend to Nginx
+      - name: Download backend
+        uses: actions/download-artifact@v4
+        with:
+          name: backend
+          path: server
+
+      # Deploy backend to EC2
+      - name: Deploy backend to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "server/*"
+          target: "/home/ubuntu/MyGroupFullStak/server"
+
+      # Deploy frontend to Nginx
+      - name: Deploy frontend to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -59,12 +84,15 @@ jobs:
           source: "dist/*"
           target: "/var/www/html"
 
-      # Restart Nginx so new build is served
-      - name: Reload Nginx
+      # Restart services
+      - name: Restart Backend + Reload Nginx
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
+            cd /home/ubuntu/MyGroupFullStak/server
+            npm install --production
+            pm2 restart all
             sudo systemctl reload nginx
