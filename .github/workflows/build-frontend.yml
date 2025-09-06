@@ -21,23 +21,23 @@ jobs:
 
       - name: Install dependencies
         run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm i
-          fi
+          npm ci
 
       - name: Build React (Vite)
         run: npm run build:web
 
-      - name: Move dist into server
-        run: mv dist server/dist
-
-      - name: Upload backend+frontend
+      - name: Upload backend
         uses: actions/upload-artifact@v4
         with:
-          name: server-bundle
+          name: server-backend
           path: server
+          if-no-files-found: error
+
+      - name: Upload frontend dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: dist
           if-no-files-found: error
 
   deploy:
@@ -45,13 +45,19 @@ jobs:
     needs: build
 
     steps:
-      - name: Download artifact
+      - name: Download backend artifact
         uses: actions/download-artifact@v4
         with:
-          name: server-bundle
+          name: server-backend
           path: server
 
-      - name: Deploy to EC2
+      - name: Download frontend artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: dist
+
+      - name: Deploy backend to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -59,6 +65,15 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           source: "server/*"
           target: "/home/ubuntu/MyGroupFullStak/server"
+
+      - name: Deploy frontend to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "dist/*"
+          target: "/var/www/html"
 
       - name: Restart Node server
         uses: appleboy/ssh-action@v1.0.0
