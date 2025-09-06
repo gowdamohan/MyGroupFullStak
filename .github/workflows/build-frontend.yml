@@ -1,0 +1,49 @@
+name: CI - Build React (dist)
+
+on:
+  push:
+    branches: [ main ]   # change if you deploy from a different branch
+  workflow_dispatch:     # lets you run it manually from the Actions tab
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18            # match your project's Node version
+          cache: npm
+
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm i
+          fi
+
+      # (Optional) If your Vite build needs env vars, define them here.
+      # env:
+      #   VITE_API_URL: ${{ secrets.VITE_API_URL }}
+
+      - name: Build React (Vite)
+        run: npm run build:web
+
+      - name: Verify dist contents
+        run: |
+          echo "----- dist/ tree -----"
+          ls -lah dist
+          echo "----------------------"
+
+      # Save the built frontend as an artifact so you can fetch it in later jobs
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: dist
+          if-no-files-found: error
