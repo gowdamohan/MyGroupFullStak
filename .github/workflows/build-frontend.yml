@@ -26,6 +26,13 @@ jobs:
       - name: Build React App from Client Directory
         run: npm run build:client
 
+      - name: Create frontend archive
+        run: |
+          cd dist/public
+          tar -czf ../../frontend-build.tar.gz .
+          cd ../..
+          ls -la frontend-build.tar.gz
+
       - name: Upload backend
         uses: actions/upload-artifact@v4
         with:
@@ -33,11 +40,11 @@ jobs:
           path: server
           if-no-files-found: error
 
-      - name: Upload frontend dist
+      - name: Upload frontend archive
         uses: actions/upload-artifact@v4
         with:
-          name: frontend-dist
-          path: dist/public
+          name: frontend-archive
+          path: frontend-build.tar.gz
           if-no-files-found: error
 
   deploy:
@@ -51,11 +58,11 @@ jobs:
           name: server-backend
           path: server
 
-      - name: Download frontend artifact
+      - name: Download frontend archive
         uses: actions/download-artifact@v4
         with:
-          name: frontend-dist
-          path: dist/public
+          name: frontend-archive
+          path: .
 
       - name: Deploy backend to EC2
         uses: appleboy/scp-action@v0.1.7
@@ -66,15 +73,14 @@ jobs:
           source: "server/*"
           target: "/home/ubuntu/MyGroupFullStak/server"
 
-      - name: Deploy frontend to EC2
+      - name: Deploy frontend archive to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
-          source: "dist/public/"
+          source: "frontend-build.tar.gz"
           target: "/tmp/"
-          strip_components: 2
 
       - name: Deploy and restart services
         uses: appleboy/ssh-action@v1.0.0
@@ -84,10 +90,30 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
               # Deploy frontend files
+              echo "=== Deploying frontend files ==="
               sudo rm -rf /var/www/html/*
-              sudo cp -r /tmp/public/* /var/www/html/
+
+              # Extract and deploy frontend
+              cd /tmp
+              tar -xzf frontend-build.tar.gz -C /var/www/html/
+
+              # Set permissions
               sudo chown -R www-data:www-data /var/www/html
               sudo chmod -R 755 /var/www/html
+
+              # Verify files were extracted
+              echo "=== Verifying extracted files ==="
+              ls -la /var/www/html/
+
+              # Check for index.html specifically
+              if [ -f "/var/www/html/index.html" ]; then
+                  echo "✅ index.html found"
+                  echo "File size: $(du -h /var/www/html/index.html)"
+              else
+                  echo "❌ index.html not found"
+                  echo "Available files:"
+                  find /var/www/html/ -type f | head -10
+              fi
 
               # Navigate to app directory
               cd /home/ubuntu/MyGroupFullStak
@@ -105,7 +131,7 @@ jobs:
               echo "Cache cleared at $(date)" | sudo tee /var/www/html/cache-bust.txt
 
               # Clean up temp files
-              rm -rf /tmp/public
+              rm -f /tmp/frontend-build.tar.gz
 
               # Show status
               echo "=== PM2 Status ==="
