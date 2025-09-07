@@ -72,15 +72,69 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
-          source: "dist/public/*"
-          target: "/var/www/html"
+          source: "dist/public/"
+          target: "/tmp/"
+          strip_components: 2
 
-      - name: Reload Nginx
+      - name: Deploy and restart services
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-              sudo systemctl reload nginx
+              # Deploy frontend files
+              sudo rm -rf /var/www/html/*
+              sudo cp -r /tmp/public/* /var/www/html/
+              sudo chown -R www-data:www-data /var/www/html
+              sudo chmod -R 755 /var/www/html
+
+              # Navigate to app directory
+              cd /home/ubuntu/MyGroupFullStak
+
+              # Install backend dependencies if needed
+              npm install --production
+
+              # Restart backend application
+              pm2 restart all || pm2 start dist/index.js --name "mygroup-app"
+
+              # Clear Nginx cache and reload
+              sudo nginx -s reload
+
+              # Add cache-busting headers to force browser refresh
+              echo "Cache cleared at $(date)" | sudo tee /var/www/html/cache-bust.txt
+
+              # Clean up temp files
+              rm -rf /tmp/public
+
+              # Show status
+              echo "=== PM2 Status ==="
+              pm2 status
+              echo "=== Nginx Status ==="
+              sudo systemctl status nginx --no-pager -l
+
+      - name: Verify deployment
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+              echo "=== Verifying Frontend Deployment ==="
+              ls -la /var/www/html/
+              echo ""
+              echo "=== Checking if index.html exists ==="
+              if [ -f "/var/www/html/index.html" ]; then
+                  echo "✅ Frontend deployed successfully"
+                  echo "File size: $(du -h /var/www/html/index.html)"
+              else
+                  echo "❌ Frontend deployment failed - index.html not found"
+                  exit 1
+              fi
+              echo ""
+              echo "=== Testing Frontend Response ==="
+              curl -I http://localhost/ || echo "Frontend not responding"
+              echo ""
+              echo "=== Testing Backend API ==="
+              curl -I http://localhost:5000/api/ || echo "Backend API not responding"
 
