@@ -23,8 +23,8 @@ jobs:
         run: |
           npm ci
 
-      - name: Build React (Vite)
-        run: npm run build:web
+      - name: Build React App from Client Directory
+        run: npm run build:client
 
       - name: Upload backend
         uses: actions/upload-artifact@v4
@@ -37,7 +37,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: frontend-dist
-          path: dist
+          path: dist/public
           if-no-files-found: error
 
   deploy:
@@ -55,7 +55,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: frontend-dist
-          path: dist
+          path: dist/public
 
       - name: Deploy backend to EC2
         uses: appleboy/scp-action@v0.1.7
@@ -72,7 +72,7 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
-          source: "dist/*"
+          source: "dist/public/*"
           target: "/var/www/html"
 
       - name: Reload Nginx
