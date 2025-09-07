@@ -67,13 +67,13 @@ sudo pkill mysqld_safe
 sudo systemctl start mysql
 
 # Test connection
-mysql -u root -p"MyGroup@2025" -e "SELECT 1;"
+mysql -u root -p"MyGroup@2025!" -e "SELECT 1;"
 ```
 
 ### Step 4: Create Database
 ```bash
-mysql -u root -p"MyGroup@2025" -e "CREATE DATABASE IF NOT EXISTS my_group;"
-mysql -u root -p"MyGroup@2025" -e "CREATE DATABASE IF NOT EXISTS apphub_db;"
+mysql -u root -p"MyGroup@2025!" -e "CREATE DATABASE IF NOT EXISTS my_group;"
+mysql -u root -p"MyGroup@2025!" -e "CREATE DATABASE IF NOT EXISTS apphub_db;"
 ```
 
 ### Step 5: Update Environment Variables
@@ -88,7 +88,7 @@ HOST=0.0.0.0
 DB_HOST=localhost
 DB_PORT=3306
 DB_USER=root
-DB_PASSWORD=MyGroup@2025
+DB_PASSWORD=MyGroup@2025!
 DB_NAME=my_group
 
 # Alternative format
@@ -172,11 +172,11 @@ Your application expects these database variables:
 DB_HOST=localhost
 DB_PORT=3306
 DB_USER=root
-DB_PASSWORD=MyGroup@2025
+DB_PASSWORD=MyGroup@2025!
 DB_NAME=my_group
 
 # Alternative format (for some libraries)
-DATABASE_URL=mysql://root:MyGroup@2025@localhost:3306/my_group
+DATABASE_URL=mysql://root:MyGroup@2025!@localhost:3306/my_group
 ```
 
 ## 🚨 Troubleshooting
@@ -195,7 +195,7 @@ DATABASE_URL=mysql://root:MyGroup@2025@localhost:3306/my_group
 
 3. **Test connection manually:**
    ```bash
-   mysql -u root -p"MyGroup@2025" -h localhost -P 3306 -e "SELECT 1;"
+   mysql -u root -p"MyGroup@2025!" -h localhost -P 3306 -e "SELECT 1;"
    ```
 
 4. **Check your application's database configuration:**

@@ -21,10 +21,10 @@ echo "-----------------------------------"
 # Create SQL commands file
 cat > /tmp/mysql_fix.sql << 'EOF'
 -- Fix root user authentication
-ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'MyGroup@2025';
+ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'MyGroup@2025!';
 
 -- Create application user (recommended approach)
-CREATE USER IF NOT EXISTS 'appuser'@'localhost' IDENTIFIED BY 'MyGroup@2025';
+CREATE USER IF NOT EXISTS 'appuser'@'localhost' IDENTIFIED BY 'MyGroup@2025!';
 GRANT ALL PRIVILEGES ON my_group.* TO 'appuser'@'localhost';
 
 -- Create database if it doesn't exist
@@ -45,20 +45,20 @@ if [ $? -eq 0 ]; then
     echo "📋 Database Access Information:"
     echo "------------------------------"
     echo "Database: my_group"
-    echo "Root User: root / MyGroup@2025"
-    echo "App User: appuser / MyGroup@2025"
+    echo "Root User: root / MyGroup@2025!"
+    echo "App User: appuser / MyGroup@2025!"
     echo ""
     echo "🧪 Testing connections:"
     echo "----------------------"
     
     echo "Testing root connection:"
-    mysql -u root -pMyGroup@2025 -e "SELECT 'Root connection successful' as status;" 2>/dev/null && echo "✅ Root connection works" || echo "❌ Root connection failed"
-    
+    mysql -u root -p"MyGroup@2025!" -e "SELECT 'Root connection successful' as status;" 2>/dev/null && echo "✅ Root connection works" || echo "❌ Root connection failed"
+
     echo "Testing appuser connection:"
-    mysql -u appuser -pMyGroup@2025 -e "SELECT 'App user connection successful' as status;" 2>/dev/null && echo "✅ App user connection works" || echo "❌ App user connection failed"
+    mysql -u appuser -p"MyGroup@2025!" -e "SELECT 'App user connection successful' as status;" 2>/dev/null && echo "✅ App user connection works" || echo "❌ App user connection failed"
     
     echo "Testing database access:"
-    mysql -u appuser -pMyGroup@2025 my_group -e "SELECT 'Database access successful' as status;" 2>/dev/null && echo "✅ Database access works" || echo "❌ Database access failed"
+    mysql -u appuser -p"MyGroup@2025!" my_group -e "SELECT 'Database access successful' as status;" 2>/dev/null && echo "✅ Database access works" || echo "❌ Database access failed"
     
 else
     echo "❌ MySQL configuration failed"
@@ -67,8 +67,8 @@ else
     # Alternative: Use sudo mysql (auth_socket)
     echo "Using sudo mysql approach..."
     sudo mysql -e "
-        ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'MyGroup@2025';
-        CREATE USER IF NOT EXISTS 'appuser'@'localhost' IDENTIFIED BY 'MyGroup@2025';
+        ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'MyGroup@2025!';
+        CREATE USER IF NOT EXISTS 'appuser'@'localhost' IDENTIFIED BY 'MyGroup@2025!';
         CREATE DATABASE IF NOT EXISTS my_group;
         GRANT ALL PRIVILEGES ON my_group.* TO 'appuser'@'localhost';
         FLUSH PRIVILEGES;

@@ -14,7 +14,7 @@ export PORT=5000
 export DB_HOST=localhost
 export DB_PORT=3306
 export DB_USER=root
-export DB_PASSWORD=MyGroup@2025
+export DB_PASSWORD=MyGroup@2025!
 export DB_NAME=my_group
 
 echo "2. Installing dependencies..."

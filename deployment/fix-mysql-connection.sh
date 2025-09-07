@@ -74,9 +74,9 @@ main() {
         DB_PASSWORD=""
     else
         print_info "Testing MySQL connection with root and password..."
-        if mysql -u root -p"MyGroup@2025" -e "SELECT 1;" 2>/dev/null; then
-            print_success "MySQL root connection works with password: MyGroup@2025"
-            DB_PASSWORD="MyGroup@2025"
+        if mysql -u root -p"MyGroup@2025!" -e "SELECT 1;" 2>/dev/null; then
+            print_success "MySQL root connection works with password: MyGroup@2025!"
+            DB_PASSWORD="MyGroup@2025!"
         else
             print_warning "Standard passwords failed. Let's reset MySQL root password..."
             

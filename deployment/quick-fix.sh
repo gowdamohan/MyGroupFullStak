@@ -30,7 +30,7 @@ fi
 
 # Create database if it doesn't exist
 print_status "Setting up database..."
-mysql -u root -pMyGroup@2025 << 'EOF'
+mysql -u root -p"MyGroup@2025!" << 'EOF'
 CREATE DATABASE IF NOT EXISTS my_group;
 SHOW DATABASES LIKE 'my_group';
 EOF

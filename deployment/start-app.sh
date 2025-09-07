@@ -48,7 +48,7 @@ else
 fi
 
 # Test database connection
-mysql -u root -pMyGroup@2025 -e "SELECT 'Database connection successful' as status;" 2>/dev/null
+mysql -u root -p"MyGroup@2025!" -e "SELECT 'Database connection successful' as status;" 2>/dev/null
 if [ $? -eq 0 ]; then
     print_status "Database connection works"
 else

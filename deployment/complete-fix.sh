@@ -47,10 +47,10 @@ echo "===================================="
 print_status "Configuring MySQL users and database..."
 
 # Create SQL commands using root password
-mysql -u root -pMyGroup@2025 << 'EOF'
+mysql -u root -p"MyGroup@2025!" << 'EOF'
 -- Create application user
 DROP USER IF EXISTS 'appuser'@'localhost';
-CREATE USER 'appuser'@'localhost' IDENTIFIED BY 'MyGroup@2025';
+CREATE USER 'appuser'@'localhost' IDENTIFIED BY 'MyGroup@2025!';
 
 -- Create database
 CREATE DATABASE IF NOT EXISTS my_group;
