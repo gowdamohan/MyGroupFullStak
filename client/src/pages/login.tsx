@@ -95,7 +95,7 @@ export default function LoginPage() {
               <div className="card-header border-0 text-center bg-transparent">
                 <h3 className="text-white fw-bold mb-0" data-testid="login-title">
                   <i className="bi bi-shield-lock me-2"></i>
-                  AppHub Login
+                  shreyas test loging deploy and build auth page
                 </h3>
               </div>
               
