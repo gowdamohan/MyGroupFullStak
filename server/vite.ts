@@ -1,12 +1,11 @@
 import express, { type Express } from "express";
 import fs from "fs";
 import path from "path";
-import { createServer as createViteServer, createLogger } from "vite";
 import { type Server } from "http";
-import viteConfig from "../vite.config";
-import { nanoid } from "nanoid";
+import { fileURLToPath } from "url";
 
-const viteLogger = createLogger();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -20,14 +19,21 @@ export function log(message: string, source = "express") {
 }
 
 export async function setupVite(app: Express, server: Server) {
+  // Dynamically import vite only when needed (development mode)
+  const { createServer: createViteServer, createLogger } = await import("vite");
+  const { nanoid } = await import("nanoid");
+
+  const viteLogger = createLogger();
+
   const serverOptions = {
     middlewareMode: true,
     hmr: { server },
     allowedHosts: true as const,
   };
 
+  // Create a minimal vite config for development
   const vite = await createViteServer({
-    ...viteConfig,
+    root: path.resolve(process.cwd(), "client"),
     configFile: false,
     customLogger: {
       ...viteLogger,
@@ -38,6 +44,12 @@ export async function setupVite(app: Express, server: Server) {
     },
     server: serverOptions,
     appType: "custom",
+    resolve: {
+      alias: {
+        "@": path.resolve(process.cwd(), "client", "src"),
+        "@shared": path.resolve(process.cwd(), "shared"),
+      },
+    },
   });
 
   app.use(vite.middlewares);
