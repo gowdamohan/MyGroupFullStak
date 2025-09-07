@@ -150,13 +150,19 @@ jobs:
 
               sudo rm -rf /var/www/html/*
 
-              # Extract and deploy frontend
+              # Extract to temporary directory first, then move with sudo
               cd /tmp
-              tar -xzf frontend-build.tar.gz -C /var/www/html/
+              rm -rf /tmp/extracted-frontend
+              mkdir -p /tmp/extracted-frontend
+              tar -xzf frontend-build.tar.gz -C /tmp/extracted-frontend/
 
-              # Set permissions
+              # Move files to web directory with proper permissions
+              sudo cp -r /tmp/extracted-frontend/* /var/www/html/
               sudo chown -R www-data:www-data /var/www/html
               sudo chmod -R 755 /var/www/html
+
+              # Clean up temporary extraction directory
+              rm -rf /tmp/extracted-frontend
 
               # Verify files were extracted
               echo "=== Verifying extracted files ==="
