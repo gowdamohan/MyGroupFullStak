@@ -28,6 +28,15 @@ export const users = mysqlTable("users", {
   groupId: int("group_id"),
   address: text("address"),
   identificationCode: varchar("identification_code", { length: 100 }),
+  // Additional registration fields
+  role: varchar("role", { length: 20 }),
+  gender: varchar("gender", { length: 10 }),
+  dateOfBirth: varchar("date_of_birth", { length: 10 }),
+  country: varchar("country", { length: 50 }),
+  state: varchar("state", { length: 50 }),
+  district: varchar("district", { length: 50 }),
+  education: varchar("education", { length: 100 }),
+  profession: varchar("profession", { length: 100 }),
 });
 
 // Groups table for user roles/permissions
