@@ -52,6 +52,7 @@ export interface IMySQLStorage {
   isAdmin(userId: number): Promise<boolean>;
   getAllUsers(): Promise<any[]>;
   deleteUser(userId: number): Promise<boolean>;
+  executeQuery(query: string): Promise<any>;
 }
 
 export class MySQLStorage implements IMySQLStorage {
@@ -1186,6 +1187,17 @@ export class MySQLStorage implements IMySQLStorage {
       return (result as any).affectedRows > 0;
     } catch (error) {
       console.error("Error deleting language:", error);
+      throw error;
+    }
+  }
+
+  async executeQuery(query: string): Promise<any> {
+    try {
+      console.log("Executing query:", query);
+      const result = await connection.execute(query);
+      return result;
+    } catch (error) {
+      console.error("Error executing query:", error);
       throw error;
     }
   }

@@ -51,14 +51,7 @@ export class MemStorage implements IStorage {
       email: insertUser.email,
       phone: insertUser.phone,
       password: hashedPassword,
-      role: insertUser.role || "user",
-      gender: insertUser.gender || null,
-      dateOfBirth: insertUser.dateOfBirth || null,
-      country: insertUser.country || null,
-      state: insertUser.state || null,
-      district: insertUser.district || null,
-      education: insertUser.education || null,
-      profession: insertUser.profession || null,
+      // Additional fields will be added after database migration
       company: insertUser.company || null,
       isVerified: false,
       createdAt: new Date()

@@ -303,7 +303,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         password: step1Data.password, // Will be hashed in mysqlStorage.createUser
         ipAddress: req.ip || '127.0.0.1',
         company: step2Data.company || null,
-        // Additional fields can be stored in a separate profile table if needed
+        // Additional fields will be added after table migration
+        role: step1Data.role || 'user',
+        gender: step2Data.gender || null,
+        dateOfBirth: step2Data.dateOfBirth || null,
+        country: step2Data.country || null,
+        state: step2Data.state || null,
+        district: step2Data.district || null,
+        education: step2Data.education || null,
+        profession: step2Data.profession || null,
       };
 
       const newUser = await mysqlStorage.createUser(userData);
@@ -734,6 +742,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting file:", error);
       res.status(500).json({ error: "Failed to delete file" });
+    }
+  });
+
+  // Add missing columns to users table
+  app.get("/api/add-registration-columns", async (req, res) => {
+    try {
+      // Add the new registration columns to the existing users table
+      const alterQueries = [
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS role varchar(20) DEFAULT 'user'",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS gender varchar(10) DEFAULT NULL",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS date_of_birth varchar(10) DEFAULT NULL",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS country varchar(50) DEFAULT NULL",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS state varchar(50) DEFAULT NULL",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS district varchar(50) DEFAULT NULL",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS education varchar(100) DEFAULT NULL",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS profession varchar(100) DEFAULT NULL"
+      ];
+
+      for (const query of alterQueries) {
+        try {
+          await mysqlStorage.executeQuery(query);
+          console.log(`✅ Executed: ${query}`);
+        } catch (error) {
+          console.log(`⚠️ Column might already exist: ${query}`);
+        }
+      }
+
+      res.json({ message: "Registration columns added successfully" });
+    } catch (error) {
+      console.error("Error adding registration columns:", error);
+      res.status(500).json({ error: "Failed to add registration columns" });
     }
   });
 
