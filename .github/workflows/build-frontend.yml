@@ -14,47 +14,60 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Install dependencies
+      # 2. Set up Node.js
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+
+      # 3. Install dependencies
       - name: Install dependencies
         run: npm ci
 
-      # 3. Build backend
-      - name: Build backend
-        run: npm run build:server   # generates dist/index.js
+      # 4. Build both frontend and backend
+      - name: Build application
+        run: |
+          echo "=== Building frontend ==="
+          npm run build:client
+          echo "=== Building backend ==="
+          npm run build:server
 
-      # 4. Build frontend
-      - name: Build frontend
-        run: npm run build:client   # generates dist/public/
+      # 5. Verify build output
+      - name: Verify build output
+        run: |
+          echo "=== Checking build output ==="
+          ls -la dist/ || echo "❌ dist directory not found"
+          ls -la dist/public/ || echo "❌ dist/public directory not found"
 
-      # 5. Upload backend dist
-      - name: Upload backend dist
-        uses: actions/upload-artifact@v4
-        with:
-          name: backend-dist
-          path: dist/index.js
-          if-no-files-found: error
+          if [ -f "dist/index.js" ]; then
+            echo "✅ Backend build found: dist/index.js"
+            ls -lh dist/index.js
+          else
+            echo "❌ Backend build missing: dist/index.js"
+            exit 1
+          fi
 
-      # 6. Upload frontend dist
-      - name: Upload frontend dist
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-dist
-          path: dist/public
-          if-no-files-found: error
+          if [ -f "dist/public/index.html" ]; then
+            echo "✅ Frontend build found: dist/public/index.html"
+            ls -lh dist/public/index.html
+          else
+            echo "❌ Frontend build missing: dist/public/index.html"
+            exit 1
+          fi
 
-      # 7. Deploy to EC2
+      # 6. Deploy to EC2
       - name: Deploy to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
-          source: |
-            dist/index.js
-            dist/public/*
-          target: /home/ubuntu/MyGroupFullStak/
+          source: "dist/*"
+          target: "/home/ubuntu/MyGroupFullStak/"
+          strip_components: 1
 
-      # 8. Restart PM2 on EC2
+      # 7. Restart PM2 on EC2
       - name: SSH to EC2 and restart app
         uses: appleboy/ssh-action@v0.1.10
         with:
@@ -64,17 +77,45 @@ jobs:
           script: |
             cd /home/ubuntu/MyGroupFullStak
 
+            # Debug: Check what was deployed
+            echo "=== Checking deployed files ==="
+            ls -la || echo "Current directory listing failed"
+            ls -la public/ || echo "public directory not found"
+
             # Restart PM2 with correct app name
-            pm2 restart mygroup || pm2 start dist/index.js --name "mygroup" --env production
+            if [ -f "index.js" ]; then
+              echo "✅ Found backend file: index.js"
+              pm2 restart mygroup || pm2 start index.js --name "mygroup" --env production
+            else
+              echo "❌ index.js not found in current directory"
+              ls -la
+              exit 1
+            fi
 
             # Move frontend dist to Nginx root
-            sudo rm -rf /var/www/html/*
-            sudo cp -r /home/ubuntu/MyGroupFullStak/dist/public/* /var/www/html/
+            if [ -d "public" ] && [ "$(ls -A public)" ]; then
+              echo "✅ Found frontend files in public directory"
+              sudo rm -rf /var/www/html/*
+              sudo cp -r public/* /var/www/html/
 
-            # Set proper permissions
-            sudo chown -R www-data:www-data /var/www/html
-            sudo chmod -R 755 /var/www/html
+              # Set proper permissions
+              sudo chown -R www-data:www-data /var/www/html
+              sudo chmod -R 755 /var/www/html
 
-            # Reload Nginx
-            sudo nginx -s reload
+              # Reload Nginx
+              sudo nginx -s reload
+
+              echo "✅ Frontend deployed successfully"
+
+              # Verify deployment
+              if [ -f "/var/www/html/index.html" ]; then
+                echo "✅ index.html deployed successfully"
+              else
+                echo "❌ index.html not found in /var/www/html/"
+              fi
+            else
+              echo "❌ public directory not found or empty"
+              ls -la
+              exit 1
+            fi
 
