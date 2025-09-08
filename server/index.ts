@@ -5,7 +5,7 @@ import fileUpload from "express-fileupload";
 import path from "path";
 import fs from "fs";
 import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
+import { serveStatic, log } from "./vite";
 console.log("Imports loaded successfully");
 
 const app = express();
@@ -99,6 +99,7 @@ app.use((req, res, next) => {
   console.log("Environment:", app.get("env"));
   if (app.get("env") === "development") {
     console.log("Setting up Vite...");
+    const { setupVite } = await import("./vite");
     await setupVite(app, server);
     console.log("Vite setup complete");
   } else {
