@@ -1,12 +1,12 @@
 import mysql from 'mysql2/promise';
 
-// MySQL connection configuration
+// MySQL connection configuration using environment variables
 const dbConfig = {
-  host: 'localhost',
-  port: 3306,
-  user: 'root',
-  password: 'MyGroup@2025!', // Using the port as password as specified
-  database: 'my_group'
+  host: process.env.DB_HOST || 'localhost',
+  port: parseInt(process.env.DB_PORT || '3306'),
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || 'MyGroup@2025!',
+  database: process.env.DB_NAME || 'my_group'
 };
 
 export async function testMySQLConnection() {
