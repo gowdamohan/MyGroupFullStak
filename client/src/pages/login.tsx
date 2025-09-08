@@ -4,6 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import type { Login } from "@shared/schema";
+import RegistrationModal from "@/components/modals/RegistrationModal";
 
 export default function LoginPage() {
   const [, setLocation] = useLocation();
@@ -11,6 +12,7 @@ export default function LoginPage() {
     username: '',
     password: '',
   });
+  const [showRegistrationModal, setShowRegistrationModal] = useState(false);
   const { toast } = useToast();
 
   const loginMutation = useMutation({
@@ -23,11 +25,16 @@ export default function LoginPage() {
       return await response.json();
     },
     onSuccess: (data: any) => {
+      // Store JWT token if provided
+      if (data.token) {
+        localStorage.setItem('authToken', data.token);
+      }
+
       toast({
         title: "Login Successful",
         description: `Welcome back, ${data.user.firstName}!`,
       });
-      
+
       // Redirect based on user role
       switch(data.user.role) {
         case 'admin':
@@ -84,6 +91,20 @@ export default function LoginPage() {
 
   const handleInputChange = (field: keyof Login, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleRegistrationSuccess = () => {
+    setShowRegistrationModal(false);
+    toast({
+      title: "Registration Successful",
+      description: "Welcome! You have been logged in automatically.",
+    });
+    // Redirect to dashboard or home page
+    setLocation('/');
+  };
+
+  const handleSwitchToLogin = () => {
+    setShowRegistrationModal(false);
   };
 
   return (
@@ -160,15 +181,26 @@ export default function LoginPage() {
 
                   <div className="text-center">
                     <p className="text-white-50 mb-2">Don't have an account?</p>
-                    <button
-                      type="button"
-                      className="btn btn-outline-light"
-                      onClick={() => setLocation('/')}
-                      data-testid="button-back-home"
-                    >
-                      <i className="bi bi-house me-2"></i>
-                      Back to Home
-                    </button>
+                    <div className="d-grid gap-2">
+                      <button
+                        type="button"
+                        className="btn btn-success"
+                        onClick={() => setShowRegistrationModal(true)}
+                        data-testid="button-register"
+                      >
+                        <i className="bi bi-person-plus me-2"></i>
+                        Create Account
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-outline-light btn-sm"
+                        onClick={() => setLocation('/')}
+                        data-testid="button-back-home"
+                      >
+                        <i className="bi bi-house me-2"></i>
+                        Back to Home
+                      </button>
+                    </div>
                   </div>
                 </form>
 
@@ -203,6 +235,14 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
+
+      {/* Registration Modal */}
+      <RegistrationModal
+        isOpen={showRegistrationModal}
+        onClose={() => setShowRegistrationModal(false)}
+        onRegistration={handleRegistrationSuccess}
+        onSwitchToLogin={handleSwitchToLogin}
+      />
     </div>
   );
 }

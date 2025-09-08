@@ -16,11 +16,15 @@ export async function apiRequest(
   } = {}
 ): Promise<Response> {
   const { method = 'GET', body, headers = {} } = options;
-  
+
+  // Get JWT token from localStorage
+  const token = localStorage.getItem('authToken');
+
   const res = await fetch(url, {
     method,
     headers: {
       'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` }),
       ...headers
     },
     body,

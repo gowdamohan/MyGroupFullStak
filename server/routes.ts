@@ -1,6 +1,7 @@
 import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { z } from "zod";
+import jwt from "jsonwebtoken";
 import path from "path";
 import fs from "fs";
 import { storage } from "./storage";
@@ -9,6 +10,8 @@ import {
   loginSchema,
   adminLoginSchema,
   registrationSchema,
+  registrationStep1Schema,
+  registrationStep2Schema,
   groupCreateSchema,
   createDetailsSchema,
   changePasswordSchema,
@@ -17,6 +20,9 @@ import {
   stateSchema,
   districtSchema
 } from "@shared/schema";
+
+// JWT Secret - In production, this should be in environment variables
+const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production';
 
 // Extend Express Request type to include session
 declare module 'express-session' {
@@ -64,14 +70,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Access denied. Admin privileges required." });
       }
 
-      // Store user session
-      req.session.userId = user.id;
+      // Generate JWT token
+      const token = jwt.sign(
+        {
+          userId: user.id,
+          username: user.username,
+          email: user.email,
+          role: 'admin'
+        },
+        JWT_SECRET,
+        { expiresIn: '24h' }
+      );
+
+      // Store user session for backward compatibility
+      req.session.userId = user.id.toString();
       req.session.userRole = 'admin';
 
-      // Return user data (excluding password)
+      // Return user data (excluding password) with JWT token
       const { password: _, salt: __, ...userWithoutPassword } = user;
       res.json({
-        user: userWithoutPassword,
+        user: {
+          ...userWithoutPassword,
+          role: 'admin'
+        },
+        token,
         message: "Admin login successful",
         isAdmin: true
       });
@@ -96,7 +118,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const userWithRole = await mysqlStorage.getUserWithRole(mysqlUser.id);
 
         if (userWithRole) {
-          req.session.userId = mysqlUser.id;
+          // Generate JWT token
+          const token = jwt.sign(
+            {
+              userId: mysqlUser.id,
+              username: mysqlUser.username,
+              email: mysqlUser.email,
+              role: userWithRole.role || 'user'
+            },
+            JWT_SECRET,
+            { expiresIn: '24h' }
+          );
+
+          req.session.userId = mysqlUser.id.toString();
           req.session.userRole = userWithRole.role || 'user';
 
           const { password: _, salt: __, ...userWithoutPassword } = mysqlUser;
@@ -107,11 +141,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
               firstName: userWithoutPassword.firstName || userWithRole.firstName,
               company: userWithoutPassword.company || userWithRole.company
             },
+            token,
             message: "Login successful"
           });
         } else {
           // User exists but has no group assignment, default to 'user' role
-          req.session.userId = mysqlUser.id;
+          // Generate JWT token
+          const token = jwt.sign(
+            {
+              userId: mysqlUser.id,
+              username: mysqlUser.username,
+              email: mysqlUser.email,
+              role: 'user'
+            },
+            JWT_SECRET,
+            { expiresIn: '24h' }
+          );
+
+          req.session.userId = mysqlUser.id.toString();
           req.session.userRole = 'user';
 
           const { password: _, salt: __, ...userWithoutPassword } = mysqlUser;
@@ -120,6 +167,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               ...userWithoutPassword,
               role: 'user'
             },
+            token,
             message: "Login successful"
           });
         }
@@ -136,8 +184,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Invalid username or password" });
       }
 
-      req.session.userId = user.id;
-      req.session.userRole = user.role;
+      req.session.userId = user.id.toString();
+      req.session.userRole = 'user'; // Default role for fallback storage
 
       const { password: _, ...userWithoutPassword } = user;
       res.json({
@@ -231,45 +279,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // User Registration Routes
   app.post("/api/users/register", async (req, res) => {
     try {
-      const step1Data = registrationSchema.parse(req.body.step1);
-      const step2Data = req.body.step2 || {};
+      const step1Data = registrationStep1Schema.parse(req.body.step1);
+      const step2Data = registrationStep2Schema.parse(req.body.step2 || {});
 
-      // Check if username or email already exists
-      const existingUserByUsername = await storage.getUserByUsername(step1Data.username);
+      // Check if username or email already exists using MySQL storage
+      const existingUserByUsername = await mysqlStorage.getUserByUsername(step1Data.username);
       if (existingUserByUsername) {
         return res.status(400).json({ error: "Username already exists" });
       }
 
-      const existingUserByEmail = await storage.getUserByEmail(step1Data.email);
+      const existingUserByEmail = await mysqlStorage.getUserByEmail(step1Data.email);
       if (existingUserByEmail) {
         return res.status(400).json({ error: "Email already exists" });
       }
 
-      // Create user with combined data
+      // Create user with combined data using MySQL storage
       const userData = {
         username: step1Data.username,
         firstName: step1Data.firstName,
         lastName: step1Data.lastName,
         email: step1Data.email,
         phone: step1Data.phone,
-        password: step1Data.password, // Will be hashed in storage.createUser
+        password: step1Data.password, // Will be hashed in mysqlStorage.createUser
         ipAddress: req.ip || '127.0.0.1',
-        gender: step2Data.gender || null,
-        dateOfBirth: step2Data.dateOfBirth || null,
-        country: step2Data.country || null,
-        state: step2Data.state || null,
-        district: step2Data.district || null,
-        education: step2Data.education || null,
-        profession: step2Data.profession || null,
         company: step2Data.company || null,
+        // Additional fields can be stored in a separate profile table if needed
       };
 
-      const newUser = await storage.createUser(userData);
-      
-      // Return user data (excluding password)
-      const { password: _, ...userWithoutPassword } = newUser;
+      const newUser = await mysqlStorage.createUser(userData);
+
+      // Generate JWT token
+      const token = jwt.sign(
+        {
+          userId: newUser.id,
+          username: newUser.username,
+          email: newUser.email,
+          role: step1Data.role || 'user'
+        },
+        JWT_SECRET,
+        { expiresIn: '24h' }
+      );
+
+      // Store user session for backward compatibility
+      req.session.userId = newUser.id.toString();
+      req.session.userRole = step1Data.role || 'user';
+
+      // Return user data (excluding password) with JWT token
+      const { password: _, salt: __, ...userWithoutPassword } = newUser;
       res.status(201).json({
-        user: userWithoutPassword,
+        user: {
+          ...userWithoutPassword,
+          role: step1Data.role || 'user'
+        },
+        token,
         message: "User created successfully"
       });
     } catch (error) {

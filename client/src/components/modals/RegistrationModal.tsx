@@ -156,22 +156,39 @@ export default function RegistrationModal({
   const handleCreateAccount = async () => {
     setIsLoading(true);
     try {
-      // TODO: Implement API call to create user account
-      console.log("Creating account with data:", { ...step1Data, ...step2Data });
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
+      const response = await fetch('/api/users/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          step1: step1Data,
+          step2: step2Data,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Registration failed');
+      }
+
+      // Store JWT token in localStorage
+      if (data.token) {
+        localStorage.setItem('authToken', data.token);
+      }
+
       toast({
         title: "Success",
-        description: "Account created successfully!",
+        description: "Account created successfully! You are now logged in.",
       });
-      
+
       onRegistration();
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "Failed to create account. Please try again.",
+        description: error.message || "Failed to create account. Please try again.",
         variant: "destructive",
       });
     } finally {

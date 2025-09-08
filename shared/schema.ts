@@ -94,6 +94,33 @@ export const registrationSchema = z.object({
   path: ["confirmPassword"],
 });
 
+// Registration Step 1 Schema (Basic Information)
+export const registrationStep1Schema = z.object({
+  username: z.string().min(3, "Username must be at least 3 characters"),
+  firstName: z.string().min(2, "First name must be at least 2 characters"),
+  lastName: z.string().min(2, "Last name must be at least 2 characters"),
+  email: z.string().email("Invalid email address"),
+  phone: z.string().min(10, "Phone number must be at least 10 digits"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  confirmPassword: z.string(),
+  role: z.enum(['user', 'admin', 'corporate', 'regional', 'branch']).default('user'),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+});
+
+// Registration Step 2 Schema (Additional Details)
+export const registrationStep2Schema = z.object({
+  gender: z.string().optional(),
+  dateOfBirth: z.string().optional(),
+  country: z.string().optional(),
+  state: z.string().optional(),
+  district: z.string().optional(),
+  education: z.string().optional(),
+  profession: z.string().optional(),
+  company: z.string().optional(),
+});
+
 // Group create schema (for existing table)
 export const groupCreateSchema = z.object({
   name: z.string().min(1, "Group name is required"),
@@ -232,6 +259,8 @@ export type CreateDetails = typeof createDetails.$inferSelect;
 export type Login = z.infer<typeof loginSchema>;
 export type AdminLogin = z.infer<typeof adminLoginSchema>;
 export type Registration = z.infer<typeof registrationSchema>;
+export type RegistrationStep1 = z.infer<typeof registrationStep1Schema>;
+export type RegistrationStep2 = z.infer<typeof registrationStep2Schema>;
 export type GroupCreateInput = z.infer<typeof groupCreateSchema>;
 export type CreateDetailsInput = z.infer<typeof createDetailsSchema>;
 export type ChangePassword = z.infer<typeof changePasswordSchema>;
