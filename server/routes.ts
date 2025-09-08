@@ -336,9 +336,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
+        console.error("Registration validation error:", error.errors);
         return res.status(400).json({ error: error.errors[0].message });
       }
       console.error("Registration error:", error);
+      console.error("Error details:", {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      });
       res.status(500).json({ error: "Internal server error" });
     }
   });

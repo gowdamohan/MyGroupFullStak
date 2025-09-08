@@ -97,7 +97,7 @@ export class MySQLStorage implements IMySQLStorage {
       const hashedPassword = await bcrypt.hash(userData.password, saltRounds);
 
       const newUser = {
-        ipAddress: '127.0.0.1',
+        ipAddress: userData.ipAddress || '127.0.0.1',
         username: userData.username,
         password: hashedPassword,
         email: userData.email,
