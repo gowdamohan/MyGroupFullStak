@@ -18,9 +18,10 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   isLoginLoading: boolean;
-  login: (credentials: { username: string; password: string }) => Promise<void>;
+  login: (credentials: { username: string; password: string }) => Promise<any>;
   logout: () => void;
   token: string | null;
+  getDashboardRoute: () => string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -87,7 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.setItem('authToken', data.token);
         setToken(data.token);
       }
-      
+
       if (data.user) {
         setUser(data.user);
       }
@@ -99,6 +100,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         title: "Login Successful",
         description: `Welcome back, ${data.user?.firstName || data.user?.username}!`,
       });
+
+
     },
     onError: (error: any) => {
       toast({
@@ -133,7 +136,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const login = async (credentials: { username: string; password: string }) => {
-    return loginMutation.mutateAsync(credentials);
+    const result = await loginMutation.mutateAsync(credentials);
+    return result;
+  };
+
+  // Function to get the appropriate dashboard route based on user role
+  const getDashboardRoute = (): string => {
+    if (!user) return '/';
+
+    switch (user.role) {
+      case 'admin':
+        return '/dashboard/admin';
+      case 'corporate':
+        return '/dashboard/corporate';
+      case 'regional':
+        return '/dashboard/regional';
+      case 'branch':
+        return '/dashboard/branch';
+      case 'head_office':
+        return '/dashboard/head-office';
+      default:
+        return '/dashboard/admin'; // Default to admin dashboard for any user
+    }
   };
 
   const value: AuthContextType = {
@@ -144,6 +168,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     login,
     logout,
     token,
+    getDashboardRoute,
   };
 
   return (

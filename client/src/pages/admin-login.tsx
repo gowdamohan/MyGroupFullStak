@@ -29,13 +29,18 @@ export default function AdminLoginPage() {
       return await response.json();
     },
     onSuccess: (data: any) => {
+      // Store JWT token if provided
+      if (data.token) {
+        localStorage.setItem('authToken', data.token);
+      }
+
       toast({
         title: "Admin Login Successful",
         description: `Welcome back, ${data.user.firstName || data.user.username}!`,
       });
-      
+
       // Redirect to admin dashboard
-      setLocation('/admin/dashboard');
+      setLocation('/dashboard/admin');
     },
     onError: (error: any) => {
       toast({

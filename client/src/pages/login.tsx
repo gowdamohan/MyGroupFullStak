@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
-import { apiRequest } from "@/lib/queryClient";
+
 import type { Login, RegistrationStep1, RegistrationStep2 } from "@shared/schema";
 
 export default function LoginPage() {
@@ -74,11 +74,33 @@ export default function LoginPage() {
 
   const handleLogin = async (data: Login) => {
     try {
-      await login(data);
+      const result = await login(data);
 
-      // Redirect to home page after successful login
-      // The auth hook will handle role-based redirects if needed
-      setLocation('/');
+      // Redirect to appropriate dashboard based on user role
+      if (result?.user?.role) {
+        switch (result.user.role) {
+          case 'admin':
+            setLocation('/dashboard/admin');
+            break;
+          case 'corporate':
+            setLocation('/dashboard/corporate');
+            break;
+          case 'regional':
+            setLocation('/dashboard/regional');
+            break;
+          case 'branch':
+            setLocation('/dashboard/branch');
+            break;
+          case 'head_office':
+            setLocation('/dashboard/head-office');
+            break;
+          default:
+            setLocation('/dashboard/admin'); // Default to admin dashboard
+        }
+      } else {
+        // Fallback to admin dashboard
+        setLocation('/dashboard/admin');
+      }
     } catch (error) {
       // Error handling is done in the auth hook
       console.error('Login error:', error);
@@ -143,8 +165,31 @@ export default function LoginPage() {
         description: "Welcome! You have been logged in automatically.",
       });
 
-      // Redirect to dashboard or home page
-      setLocation('/');
+      // Redirect to appropriate dashboard based on user role
+      if (data?.user?.role) {
+        switch (data.user.role) {
+          case 'admin':
+            setLocation('/dashboard/admin');
+            break;
+          case 'corporate':
+            setLocation('/dashboard/corporate');
+            break;
+          case 'regional':
+            setLocation('/dashboard/regional');
+            break;
+          case 'branch':
+            setLocation('/dashboard/branch');
+            break;
+          case 'head_office':
+            setLocation('/dashboard/head-office');
+            break;
+          default:
+            setLocation('/dashboard/admin'); // Default to admin dashboard
+        }
+      } else {
+        // Fallback to admin dashboard
+        setLocation('/dashboard/admin');
+      }
     },
     onError: (error: any) => {
       toast({
