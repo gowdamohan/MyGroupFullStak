@@ -3,7 +3,7 @@ import { mysqlTable, text, varchar, timestamp, boolean, int, tinyint } from "dri
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Main users table matching the existing MySQL schema
+// Main users table matching your exact MySQL schema
 export const users = mysqlTable("users", {
   id: int("id").primaryKey().autoincrement(),
   ipAddress: varchar("ip_address", { length: 15 }).notNull(),

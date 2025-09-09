@@ -207,9 +207,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/login", async (req, res) => {
     try {
       const { username, password } = loginSchema.parse(req.body);
+      console.log("🔐 Login attempt for username:", username);
 
       // Try MySQL storage first with group-based authentication
       const mysqlUser = await mysqlStorage.authenticateUser(username, password);
+      console.log("🔍 MySQL authentication result:", mysqlUser ? "SUCCESS" : "FAILED");
+
       if (mysqlUser) {
         // Get user role based on group membership using the SQL query provided
         const userWithRole = await mysqlStorage.getUserWithRole(mysqlUser.id);
@@ -826,6 +829,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error adding registration columns:", error);
       res.status(500).json({ error: "Failed to add registration columns" });
+    }
+  });
+
+  // Test database connection and table structure
+  app.get("/api/test-db", async (req, res) => {
+    try {
+      console.log("🔍 Testing database connection and structure...");
+
+      // Test basic connection
+      const testQuery = "SELECT 1 as test";
+      const result = await mysqlStorage.executeQuery(testQuery);
+      console.log("✅ Database connection successful:", result);
+
+      // Check if users table exists and get its structure
+      const tableStructure = await mysqlStorage.executeQuery("DESCRIBE users");
+      console.log("📋 Users table structure:", tableStructure);
+
+      // Check existing users
+      const existingUsers = await mysqlStorage.executeQuery("SELECT id, username, email FROM users LIMIT 5");
+      console.log("👥 Existing users:", existingUsers);
+
+      res.json({
+        message: "Database test successful",
+        tableStructure,
+        existingUsers,
+        connectionTest: result
+      });
+    } catch (error) {
+      console.error("❌ Database test failed:", error);
+      res.status(500).json({
+        error: "Database test failed",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // Simple endpoint to create a test user
+  app.get("/api/create-test-user", async (req, res) => {
+    try {
+      console.log("🔍 Creating test user...");
+
+      // Try to create a simple test user
+      const testUser = {
+        username: "testuser",
+        firstName: "Test",
+        lastName: "User",
+        email: "test@example.com",
+        phone: "1234567890",
+        password: "password",
+        ipAddress: "127.0.0.1",
+        company: "Test Company",
+        active: 1,
+        createdOn: Math.floor(Date.now() / 1000),
+        groupId: 0,
+      };
+
+      const createdUser = await mysqlStorage.createUser(testUser);
+      console.log("✅ Test user created:", createdUser);
+
+      res.json({
+        message: "Test user created successfully",
+        user: { ...createdUser, password: "[HIDDEN]" }
+      });
+    } catch (error) {
+      console.error("❌ Test user creation failed:", error);
+      res.status(500).json({
+        error: "Test user creation failed",
+        details: error instanceof Error ? error.message : String(error)
+      });
     }
   });
 

@@ -42,6 +42,7 @@ const connection = mysql.createPool(dbConfig);
 const db = drizzle(connection);
 
 export interface IMySQLStorage {
+  initializeDemoUsers(): Promise<void>;
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
@@ -56,6 +57,104 @@ export interface IMySQLStorage {
 }
 
 export class MySQLStorage implements IMySQLStorage {
+  // Initialize demo users if they don't exist
+  async initializeDemoUsers(): Promise<void> {
+    try {
+      console.log("🔍 Checking for demo users...");
+
+      // Check if admin user exists
+      const existingAdmin = await this.getUserByUsername("admin");
+      if (existingAdmin) {
+        console.log("✅ Demo users already exist");
+        return;
+      }
+
+      console.log("🔄 Creating demo users...");
+
+      // Create demo users
+      const demoUsers = [
+        {
+          username: "admin",
+          firstName: "System",
+          lastName: "Administrator",
+          email: "admin@apphub.com",
+          phone: "1234567890",
+          password: "password",
+          ipAddress: "127.0.0.1",
+          company: "AppHub System",
+          active: 1,
+          createdOn: Math.floor(Date.now() / 1000),
+          groupId: 1,
+        },
+        {
+          username: "corporate",
+          firstName: "Corporate",
+          lastName: "Manager",
+          email: "corporate@apphub.com",
+          phone: "1234567891",
+          password: "password",
+          ipAddress: "127.0.0.1",
+          company: "Corporate Division",
+          active: 1,
+          createdOn: Math.floor(Date.now() / 1000),
+          groupId: 2,
+        },
+        {
+          username: "head_office",
+          firstName: "Head Office",
+          lastName: "Executive",
+          email: "headoffice@apphub.com",
+          phone: "1234567892",
+          password: "password",
+          ipAddress: "127.0.0.1",
+          company: "Head Office",
+          active: 1,
+          createdOn: Math.floor(Date.now() / 1000),
+          groupId: 3,
+        },
+        {
+          username: "regional",
+          firstName: "Regional",
+          lastName: "Manager",
+          email: "regional@apphub.com",
+          phone: "1234567893",
+          password: "password",
+          ipAddress: "127.0.0.1",
+          company: "Regional Office",
+          active: 1,
+          createdOn: Math.floor(Date.now() / 1000),
+          groupId: 4,
+        },
+        {
+          username: "branch",
+          firstName: "Branch",
+          lastName: "Manager",
+          email: "branch@apphub.com",
+          phone: "1234567894",
+          password: "password",
+          ipAddress: "127.0.0.1",
+          company: "Branch Office",
+          active: 1,
+          createdOn: Math.floor(Date.now() / 1000),
+          groupId: 5,
+        }
+      ];
+
+      for (const userData of demoUsers) {
+        try {
+          await this.createUser(userData);
+          console.log(`✅ Created demo user: ${userData.username}`);
+        } catch (error) {
+          console.error(`❌ Failed to create demo user ${userData.username}:`, error);
+        }
+      }
+
+      console.log("✅ Demo users initialization complete");
+    } catch (error) {
+      console.error("❌ Demo users initialization failed:", error);
+    }
+  }
+
   async getUser(id: number): Promise<User | undefined> {
     try {
       const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
@@ -138,13 +237,21 @@ export class MySQLStorage implements IMySQLStorage {
 
   async authenticateUser(username: string, password: string): Promise<User | null> {
     try {
+      console.log("🔍 Authenticating user:", username);
       const user = await this.getUserByUsername(username);
+      console.log("👤 User found:", user ? "YES" : "NO");
+
       if (!user) {
+        console.log("❌ User not found in database");
         return null;
       }
 
+      console.log("🔐 Verifying password...");
       const isValidPassword = await this.verifyPassword(password, user.password);
+      console.log("🔐 Password valid:", isValidPassword ? "YES" : "NO");
+
       if (!isValidPassword) {
+        console.log("❌ Invalid password");
         return null;
       }
 
