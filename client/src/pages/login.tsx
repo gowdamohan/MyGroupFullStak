@@ -27,50 +27,19 @@ export default function LoginPage() {
     phone: '',
     password: '',
     confirmPassword: '',
-    role: 'user',
+    company: '',
   });
 
   const [step2Data, setStep2Data] = useState<RegistrationStep2>({
-    gender: '',
-    dateOfBirth: '',
-    country: '',
-    state: '',
-    district: '',
-    education: '',
-    profession: '',
-    company: '',
+    displayName: '',
+    alterNumber: '',
+    address: '',
+    identificationCode: '',
   });
 
   const { toast } = useToast();
 
-  // Location data
-  const countries = [
-    { code: 'us', name: 'United States' },
-    { code: 'in', name: 'India' },
-    { code: 'uk', name: 'United Kingdom' },
-    { code: 'ca', name: 'Canada' },
-  ];
 
-  const states = [
-    { code: 'ca', name: 'California', countryCode: 'us' },
-    { code: 'ny', name: 'New York', countryCode: 'us' },
-    { code: 'mh', name: 'Maharashtra', countryCode: 'in' },
-    { code: 'dl', name: 'Delhi', countryCode: 'in' },
-    { code: 'on', name: 'Ontario', countryCode: 'ca' },
-    { code: 'bc', name: 'British Columbia', countryCode: 'ca' },
-  ];
-
-  const districts = [
-    { code: 'sf', name: 'San Francisco', stateCode: 'ca' },
-    { code: 'la', name: 'Los Angeles', stateCode: 'ca' },
-    { code: 'mumbai', name: 'Mumbai', stateCode: 'mh' },
-    { code: 'pune', name: 'Pune', stateCode: 'mh' },
-    { code: 'toronto', name: 'Toronto', stateCode: 'on' },
-    { code: 'vancouver', name: 'Vancouver', stateCode: 'bc' },
-  ];
-
-  const filteredStates = states.filter(state => state.countryCode === step2Data.country);
-  const filteredDistricts = districts.filter(district => district.stateCode === step2Data.state);
 
   const handleLogin = async (data: Login) => {
     try {
@@ -299,17 +268,13 @@ export default function LoginPage() {
       phone: '',
       password: '',
       confirmPassword: '',
-      role: 'user',
+      company: '',
     });
     setStep2Data({
-      gender: '',
-      dateOfBirth: '',
-      country: '',
-      state: '',
-      district: '',
-      education: '',
-      profession: '',
-      company: '',
+      displayName: '',
+      alterNumber: '',
+      address: '',
+      identificationCode: '',
     });
   };
 
@@ -531,6 +496,20 @@ export default function LoginPage() {
                               <label htmlFor="confirmPassword" className="text-muted">Confirm</label>
                             </div>
                           </div>
+                          <div className="col-12">
+                            <div className="form-floating">
+                              <input
+                                type="text"
+                                className="form-control"
+                                id="company"
+                                placeholder="Company/Organization"
+                                value={step1Data.company}
+                                onChange={(e) => setStep1Data(prev => ({ ...prev, company: e.target.value }))}
+                                data-testid="input-company"
+                              />
+                              <label htmlFor="company" className="text-muted">Company/Organization (Optional)</label>
+                            </div>
+                          </div>
                         </div>
                         <button
                           className="btn btn-primary w-100 mt-4"
@@ -548,85 +527,44 @@ export default function LoginPage() {
                         <div className="row g-3">
                           <div className="col-6">
                             <div className="form-floating">
-                              <select
-                                className="form-select"
-                                id="gender"
-                                value={step2Data.gender}
-                                onChange={(e) => setStep2Data(prev => ({ ...prev, gender: e.target.value }))}
-                                data-testid="select-gender"
-                              >
-                                <option value="">Select</option>
-                                <option value="male">Male</option>
-                                <option value="female">Female</option>
-                                <option value="other">Other</option>
-                              </select>
-                              <label htmlFor="gender" className="text-muted">Gender</label>
+                              <input
+                                type="text"
+                                className="form-control"
+                                id="displayName"
+                                placeholder="Display Name"
+                                value={step2Data.displayName}
+                                onChange={(e) => setStep2Data(prev => ({ ...prev, displayName: e.target.value }))}
+                                data-testid="input-display-name"
+                              />
+                              <label htmlFor="displayName" className="text-muted">Display Name</label>
                             </div>
                           </div>
                           <div className="col-6">
                             <div className="form-floating">
                               <input
-                                type="date"
+                                type="text"
                                 className="form-control"
-                                id="dateOfBirth"
-                                value={step2Data.dateOfBirth}
-                                onChange={(e) => setStep2Data(prev => ({ ...prev, dateOfBirth: e.target.value }))}
-                                data-testid="input-date-of-birth"
+                                id="alterNumber"
+                                placeholder="Alternate Number"
+                                value={step2Data.alterNumber}
+                                onChange={(e) => setStep2Data(prev => ({ ...prev, alterNumber: e.target.value }))}
+                                data-testid="input-alter-number"
                               />
-                              <label htmlFor="dateOfBirth" className="text-muted">Date of Birth</label>
+                              <label htmlFor="alterNumber" className="text-muted">Alternate Number</label>
                             </div>
                           </div>
-                          <div className="col-4">
+                          <div className="col-12">
                             <div className="form-floating">
-                              <select
-                                className="form-select"
-                                id="country"
-                                value={step2Data.country}
-                                onChange={(e) => setStep2Data(prev => ({ ...prev, country: e.target.value, state: '', district: '' }))}
-                                data-testid="select-country"
-                              >
-                                <option value="">Country</option>
-                                {countries.map(country => (
-                                  <option key={country.code} value={country.code}>{country.name}</option>
-                                ))}
-                              </select>
-                              <label htmlFor="country" className="text-muted">Country</label>
-                            </div>
-                          </div>
-                          <div className="col-4">
-                            <div className="form-floating">
-                              <select
-                                className="form-select"
-                                id="state"
-                                value={step2Data.state}
-                                onChange={(e) => setStep2Data(prev => ({ ...prev, state: e.target.value, district: '' }))}
-                                disabled={!step2Data.country}
-                                data-testid="select-state"
-                              >
-                                <option value="">State</option>
-                                {filteredStates.map(state => (
-                                  <option key={state.code} value={state.code}>{state.name}</option>
-                                ))}
-                              </select>
-                              <label htmlFor="state" className="text-muted">State</label>
-                            </div>
-                          </div>
-                          <div className="col-4">
-                            <div className="form-floating">
-                              <select
-                                className="form-select"
-                                id="district"
-                                value={step2Data.district}
-                                onChange={(e) => setStep2Data(prev => ({ ...prev, district: e.target.value }))}
-                                disabled={!step2Data.state}
-                                data-testid="select-district"
-                              >
-                                <option value="">District</option>
-                                {filteredDistricts.map(district => (
-                                  <option key={district.code} value={district.code}>{district.name}</option>
-                                ))}
-                              </select>
-                              <label htmlFor="district" className="text-muted">District</label>
+                              <textarea
+                                className="form-control"
+                                id="address"
+                                placeholder="Address"
+                                value={step2Data.address}
+                                onChange={(e) => setStep2Data(prev => ({ ...prev, address: e.target.value }))}
+                                data-testid="input-address"
+                                style={{ height: '100px' }}
+                              />
+                              <label htmlFor="address" className="text-muted">Address</label>
                             </div>
                           </div>
                           <div className="col-12">
@@ -634,43 +572,16 @@ export default function LoginPage() {
                               <input
                                 type="text"
                                 className="form-control"
-                                id="education"
-                                placeholder="Education"
-                                value={step2Data.education}
-                                onChange={(e) => setStep2Data(prev => ({ ...prev, education: e.target.value }))}
-                                data-testid="input-education"
+                                id="identificationCode"
+                                placeholder="Identification Code"
+                                value={step2Data.identificationCode}
+                                onChange={(e) => setStep2Data(prev => ({ ...prev, identificationCode: e.target.value }))}
+                                data-testid="input-identification-code"
                               />
-                              <label htmlFor="education" className="text-muted">Education</label>
+                              <label htmlFor="identificationCode" className="text-muted">Identification Code</label>
                             </div>
                           </div>
-                          <div className="col-12">
-                            <div className="form-floating">
-                              <input
-                                type="text"
-                                className="form-control"
-                                id="profession"
-                                placeholder="Profession"
-                                value={step2Data.profession}
-                                onChange={(e) => setStep2Data(prev => ({ ...prev, profession: e.target.value }))}
-                                data-testid="input-profession"
-                              />
-                              <label htmlFor="profession" className="text-muted">Profession</label>
-                            </div>
-                          </div>
-                          <div className="col-12">
-                            <div className="form-floating">
-                              <input
-                                type="text"
-                                className="form-control"
-                                id="company"
-                                placeholder="Company"
-                                value={step2Data.company}
-                                onChange={(e) => setStep2Data(prev => ({ ...prev, company: e.target.value }))}
-                                data-testid="input-company"
-                              />
-                              <label htmlFor="company" className="text-muted">Company/Organization</label>
-                            </div>
-                          </div>
+
                         </div>
                         <div className="row g-2 mt-4">
                           <div className="col-6">
