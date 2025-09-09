@@ -10,7 +10,7 @@ export default function LoginPage() {
   const [, setLocation] = useLocation();
   const [isRegistering, setIsRegistering] = useState(false);
   const [registrationStep, setRegistrationStep] = useState(1);
-  const { login } = useAuth();
+  const { login, isLoginLoading } = useAuth();
 
   // Login form data
   const [formData, setFormData] = useState<Login>({
@@ -299,7 +299,7 @@ export default function LoginPage() {
                           placeholder="Username"
                           value={formData.username}
                           onChange={(e) => handleInputChange('username', e.target.value)}
-                          disabled={loginMutation.isPending}
+                          disabled={isLoginLoading}
                           required
                           data-testid="input-username"
                         />
@@ -318,7 +318,7 @@ export default function LoginPage() {
                           placeholder="Password"
                           value={formData.password}
                           onChange={(e) => handleInputChange('password', e.target.value)}
-                          disabled={loginMutation.isPending}
+                          disabled={isLoginLoading}
                           required
                           data-testid="input-password"
                         />
@@ -331,10 +331,10 @@ export default function LoginPage() {
                     <button
                       type="submit"
                       className="btn btn-primary w-100 mb-3"
-                      disabled={loginMutation.isPending}
+                      disabled={isLoginLoading}
                       data-testid="button-login"
                     >
-                      {loginMutation.isPending ? (
+                      {isLoginLoading ? (
                         <>
                           <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
                           Signing in...
