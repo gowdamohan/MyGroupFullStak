@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import StatsCard from "@/components/dashboard/StatsCard";
 import ChartCard from "@/components/dashboard/ChartCard";
+import { headOfficeMenuItems } from "@/config/head_office_menu";
 
 export default function HeadOfficeDashboard() {
   const [selectedPeriod, setSelectedPeriod] = useState('30d');
@@ -41,23 +42,11 @@ export default function HeadOfficeDashboard() {
     })
   });
 
-  const menuItems = [
-    { icon: 'bi-speedometer2', label: 'Dashboard', path: '/dashboard/head-office', active: true },
-    { icon: 'bi-building-gear', label: 'Corporate Oversight', path: '/dashboard/head-office/corporates' },
-    { icon: 'bi-graph-up-arrow', label: 'Strategic Planning', path: '/dashboard/head-office/strategy' },
-    { icon: 'bi-shield-check', label: 'Compliance & Risk', path: '/dashboard/head-office/compliance' },
-    { icon: 'bi-people-fill', label: 'Board Relations', path: '/dashboard/head-office/board' },
-    { icon: 'bi-bar-chart', label: 'Executive Reports', path: '/dashboard/head-office/reports' },
-    { icon: 'bi-currency-exchange', label: 'Financial Overview', path: '/dashboard/head-office/finance' },
-    { icon: 'bi-globe', label: 'Market Analysis', path: '/dashboard/head-office/market' },
-    { icon: 'bi-gear-wide-connected', label: 'System Integration', path: '/dashboard/head-office/integration' },
-  ];
-
   return (
-    <DashboardLayout 
-      title="Head Office Dashboard" 
+    <DashboardLayout
+      title="Head Office Dashboard"
       userRole="head_office"
-      menuItems={menuItems}
+      menuItems={headOfficeMenuItems}
     >
       {/* Period Selector */}
       <div className="row mb-4">

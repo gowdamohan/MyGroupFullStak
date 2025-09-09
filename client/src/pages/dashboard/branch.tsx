@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import StatsCard from "@/components/dashboard/StatsCard";
 import ChartCard from "@/components/dashboard/ChartCard";
+import { branchMenuItems } from "@/config/branch_menu";
 
 export default function BranchDashboard() {
   const [selectedPeriod, setSelectedPeriod] = useState('30d');
@@ -41,21 +42,11 @@ export default function BranchDashboard() {
     })
   });
 
-  const menuItems = [
-    { icon: 'bi-speedometer2', label: 'Dashboard', path: '/dashboard/branch', active: true },
-    { icon: 'bi-people', label: 'Staff Management', path: '/dashboard/branch/staff' },
-    { icon: 'bi-person-hearts', label: 'Customer Service', path: '/dashboard/branch/customers' },
-    { icon: 'bi-clipboard-check', label: 'Daily Tasks', path: '/dashboard/branch/tasks' },
-    { icon: 'bi-graph-up', label: 'Sales Reports', path: '/dashboard/branch/sales' },
-    { icon: 'bi-calendar-event', label: 'Scheduling', path: '/dashboard/branch/schedule' },
-    { icon: 'bi-gear', label: 'Branch Settings', path: '/dashboard/branch/settings' },
-  ];
-
   return (
-    <DashboardLayout 
-      title="Branch Dashboard - Downtown Branch" 
+    <DashboardLayout
+      title="Branch Dashboard - Downtown Branch"
       userRole="branch"
-      menuItems={menuItems}
+      menuItems={branchMenuItems}
     >
       {/* Period Selector */}
       <div className="row mb-4">

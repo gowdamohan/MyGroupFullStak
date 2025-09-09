@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import StatsCard from "@/components/dashboard/StatsCard";
 import ChartCard from "@/components/dashboard/ChartCard";
+import { regionalMenuItems } from "@/config/regional_menu";
 
 export default function RegionalDashboard() {
   const [selectedPeriod, setSelectedPeriod] = useState('30d');
@@ -39,21 +40,11 @@ export default function RegionalDashboard() {
     })
   });
 
-  const menuItems = [
-    { icon: 'bi-speedometer2', label: 'Dashboard', path: '/dashboard/regional', active: true },
-    { icon: 'bi-building', label: 'Branch Management', path: '/dashboard/regional/branches' },
-    { icon: 'bi-people', label: 'Team Management', path: '/dashboard/regional/teams' },
-    { icon: 'bi-graph-up', label: 'Performance Reports', path: '/dashboard/regional/reports' },
-    { icon: 'bi-target', label: 'Targets & Goals', path: '/dashboard/regional/targets' },
-    { icon: 'bi-calendar-check', label: 'Operations', path: '/dashboard/regional/operations' },
-    { icon: 'bi-gear', label: 'Regional Settings', path: '/dashboard/regional/settings' },
-  ];
-
   return (
-    <DashboardLayout 
-      title="Regional Dashboard - East Region" 
+    <DashboardLayout
+      title="Regional Dashboard - East Region"
       userRole="regional"
-      menuItems={menuItems}
+      menuItems={regionalMenuItems}
     >
       {/* Period Selector */}
       <div className="row mb-4">
