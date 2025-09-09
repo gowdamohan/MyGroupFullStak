@@ -346,39 +346,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const step1Data = registrationStep1Schema.parse(req.body.step1);
       const step2Data = registrationStep2Schema.parse(req.body.step2 || {});
 
-      // Check if username or email already exists using MySQL storage
-      const existingUserByUsername = await mysqlStorage.getUserByUsername(step1Data.username);
-      if (existingUserByUsername) {
-        return res.status(400).json({ error: "Username already exists" });
+      let newUser;
+
+      try {
+        // Try MySQL storage first
+        const existingUserByUsername = await mysqlStorage.getUserByUsername(step1Data.username);
+        if (existingUserByUsername) {
+          return res.status(400).json({ error: "Username already exists" });
+        }
+
+        const existingUserByEmail = await mysqlStorage.getUserByEmail(step1Data.email);
+        if (existingUserByEmail) {
+          return res.status(400).json({ error: "Email already exists" });
+        }
+
+        // Create user with combined data using MySQL storage
+        const userData = {
+          username: step1Data.username,
+          firstName: step1Data.firstName,
+          lastName: step1Data.lastName,
+          email: step1Data.email,
+          phone: step1Data.phone,
+          password: step1Data.password, // Will be hashed in mysqlStorage.createUser
+          ipAddress: req.ip || '127.0.0.1',
+          company: step2Data.company || null,
+          // Additional fields will be added after table migration
+          role: step1Data.role || 'user',
+          gender: step2Data.gender || null,
+          dateOfBirth: step2Data.dateOfBirth || null,
+          country: step2Data.country || null,
+          state: step2Data.state || null,
+          district: step2Data.district || null,
+          education: step2Data.education || null,
+          profession: step2Data.profession || null,
+        };
+
+        newUser = await mysqlStorage.createUser(userData);
+      } catch (mysqlError) {
+        console.log("MySQL storage failed, falling back to in-memory storage:", mysqlError);
+
+        // Fall back to in-memory storage
+        const existingUser = await storage.getUserByUsername(step1Data.username);
+        if (existingUser) {
+          return res.status(400).json({ error: "Username already exists" });
+        }
+
+        const existingUserByEmail = await storage.getUserByEmail(step1Data.email);
+        if (existingUserByEmail) {
+          return res.status(400).json({ error: "Email already exists" });
+        }
+
+        // Create user with in-memory storage
+        const userData = {
+          username: step1Data.username,
+          firstName: step1Data.firstName,
+          lastName: step1Data.lastName,
+          email: step1Data.email,
+          phone: step1Data.phone,
+          password: step1Data.password,
+          ipAddress: req.ip || '127.0.0.1',
+          role: step1Data.role || 'user',
+        };
+
+        newUser = await storage.createUser(userData);
       }
-
-      const existingUserByEmail = await mysqlStorage.getUserByEmail(step1Data.email);
-      if (existingUserByEmail) {
-        return res.status(400).json({ error: "Email already exists" });
-      }
-
-      // Create user with combined data using MySQL storage
-      const userData = {
-        username: step1Data.username,
-        firstName: step1Data.firstName,
-        lastName: step1Data.lastName,
-        email: step1Data.email,
-        phone: step1Data.phone,
-        password: step1Data.password, // Will be hashed in mysqlStorage.createUser
-        ipAddress: req.ip || '127.0.0.1',
-        company: step2Data.company || null,
-        // Additional fields will be added after table migration
-        role: step1Data.role || 'user',
-        gender: step2Data.gender || null,
-        dateOfBirth: step2Data.dateOfBirth || null,
-        country: step2Data.country || null,
-        state: step2Data.state || null,
-        district: step2Data.district || null,
-        education: step2Data.education || null,
-        profession: step2Data.profession || null,
-      };
-
-      const newUser = await mysqlStorage.createUser(userData);
 
       // Generate JWT token
       const token = jwt.sign(
