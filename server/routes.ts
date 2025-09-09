@@ -207,12 +207,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/login", async (req, res) => {
     try {
       const { username, password } = loginSchema.parse(req.body);
-      console.log("🔐 Login attempt for username:", username);
 
       // Try MySQL storage first with group-based authentication
       const mysqlUser = await mysqlStorage.authenticateUser(username, password);
-      console.log("🔍 MySQL authentication result:", mysqlUser ? "SUCCESS" : "FAILED");
-
       if (mysqlUser) {
         // Get user role based on group membership using the SQL query provided
         const userWithRole = await mysqlStorage.getUserWithRole(mysqlUser.id);
@@ -363,7 +360,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ error: "Email already exists" });
         }
 
-        // Create user with combined data using MySQL storage - only using existing columns
+        // Create user with combined data using MySQL storage
         const userData = {
           username: step1Data.username,
           firstName: step1Data.firstName,
@@ -372,14 +369,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           phone: step1Data.phone,
           password: step1Data.password, // Will be hashed in mysqlStorage.createUser
           ipAddress: req.ip || '127.0.0.1',
-          company: step1Data.company || null,
-          displayName: step2Data.displayName || null,
-          alterNumber: step2Data.alterNumber || null,
-          address: step2Data.address || null,
-          identificationCode: step2Data.identificationCode || null,
-          active: 1, // Set user as active
-          createdOn: Math.floor(Date.now() / 1000), // Unix timestamp
-          groupId: 0, // Default group
+          company: step2Data.company || null,
+          // Additional fields will be added after table migration
+          role: step1Data.role || 'user',
+          gender: step2Data.gender || null,
+          dateOfBirth: step2Data.dateOfBirth || null,
+          country: step2Data.country || null,
+          state: step2Data.state || null,
+          district: step2Data.district || null,
+          education: step2Data.education || null,
+          profession: step2Data.profession || null,
         };
 
         newUser = await mysqlStorage.createUser(userData);
@@ -406,7 +405,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           phone: step1Data.phone,
           password: step1Data.password,
           ipAddress: req.ip || '127.0.0.1',
-
+          role: step1Data.role || 'user',
         };
 
         newUser = await storage.createUser(userData);
@@ -418,7 +417,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           userId: newUser.id,
           username: newUser.username,
           email: newUser.email,
-          role: 'user' // Default role for new registrations
+          role: step1Data.role || 'user'
         },
         JWT_SECRET,
         { expiresIn: '24h' }
@@ -426,14 +425,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Store user session for backward compatibility
       req.session.userId = newUser.id.toString();
-      req.session.userRole = 'user';
+      req.session.userRole = step1Data.role || 'user';
 
       // Return user data (excluding password) with JWT token
       const { password: _, salt: __, ...userWithoutPassword } = newUser;
       res.status(201).json({
         user: {
           ...userWithoutPassword,
-          role: 'user' // Default role for new registrations
+          role: step1Data.role || 'user'
         },
         token,
         message: "User created successfully"
@@ -832,85 +831,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Test database connection and table structure
-  app.get("/api/test-db", async (req, res) => {
-    try {
-      console.log("🔍 Testing database connection and structure...");
-
-      // Test basic connection
-      const testQuery = "SELECT 1 as test";
-      const result = await mysqlStorage.executeQuery(testQuery);
-      console.log("✅ Database connection successful:", result);
-
-      // Check if users table exists and get its structure
-      const tableStructure = await mysqlStorage.executeQuery("DESCRIBE users");
-      console.log("📋 Users table structure:", tableStructure);
-
-      // Check existing users
-      const existingUsers = await mysqlStorage.executeQuery("SELECT id, username, email FROM users LIMIT 5");
-      console.log("👥 Existing users:", existingUsers);
-
-      res.json({
-        message: "Database test successful",
-        tableStructure,
-        existingUsers,
-        connectionTest: result
-      });
-    } catch (error) {
-      console.error("❌ Database test failed:", error);
-      res.status(500).json({
-        error: "Database test failed",
-        details: error instanceof Error ? error.message : String(error)
-      });
-    }
-  });
-
-  // Simple endpoint to create a test user
-  app.get("/api/create-test-user", async (req, res) => {
-    try {
-      console.log("🔍 Creating test user...");
-
-      // Try to create a simple test user
-      const testUser = {
-        username: "testuser",
-        firstName: "Test",
-        lastName: "User",
-        email: "test@example.com",
-        phone: "1234567890",
-        password: "password",
-        ipAddress: "127.0.0.1",
-        company: "Test Company",
-        active: 1,
-        createdOn: Math.floor(Date.now() / 1000),
-        groupId: 0,
-      };
-
-      const createdUser = await mysqlStorage.createUser(testUser);
-      console.log("✅ Test user created:", createdUser);
-
-      res.json({
-        message: "Test user created successfully",
-        user: { ...createdUser, password: "[HIDDEN]" }
-      });
-    } catch (error) {
-      console.error("❌ Test user creation failed:", error);
-      res.status(500).json({
-        error: "Test user creation failed",
-        details: error instanceof Error ? error.message : String(error)
-      });
-    }
-  });
-
   // Initialize demo users
   app.get("/api/init-demo-users", async (req, res) => {
     try {
-      // Check if demo users already exist in MySQL
-      const existingAdmin = await mysqlStorage.getUserByUsername("admin");
+      // Check if demo users already exist
+      const existingAdmin = await storage.getUserByUsername("admin");
       if (existingAdmin) {
         return res.json({ message: "Demo users already exist" });
       }
 
-      // Create demo users with proper schema - only using existing columns
+      // Create demo users with proper schema
       const demoUsers = [
         {
           username: "admin",
@@ -918,12 +848,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           lastName: "Administrator",
           email: "admin@apphub.com",
           phone: "1234567890",
-          password: "password", // Will be hashed in mysqlStorage.createUser
+          password: "password", // Will be hashed in storage.createUser
           ipAddress: "127.0.0.1",
-          company: "AppHub System",
-          active: 1,
-          createdOn: Math.floor(Date.now() / 1000),
-          groupId: 1, // Admin group
+          role: "admin",
+          gender: null,
+          dateOfBirth: null,
+          country: null,
+          state: null,
+          district: null,
+          education: null,
+          profession: null,
+          company: null,
         },
         {
           username: "corporate",
@@ -933,10 +868,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           phone: "1234567891",
           password: "password",
           ipAddress: "127.0.0.1",
-          company: "Corporate Division",
-          active: 1,
-          createdOn: Math.floor(Date.now() / 1000),
-          groupId: 2, // Corporate group
+          role: "corporate",
+          gender: null,
+          dateOfBirth: null,
+          country: null,
+          state: null,
+          district: null,
+          education: null,
+          profession: null,
+          company: null,
         },
         {
           username: "head_office",
@@ -946,10 +886,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           phone: "1234567892",
           password: "password",
           ipAddress: "127.0.0.1",
-          company: "Head Office",
-          active: 1,
-          createdOn: Math.floor(Date.now() / 1000),
-          groupId: 3, // Head Office group
+          role: "head_office",
+          gender: null,
+          dateOfBirth: null,
+          country: null,
+          state: null,
+          district: null,
+          education: null,
+          profession: null,
+          company: null,
         },
         {
           username: "regional",
@@ -959,10 +904,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           phone: "1234567893",
           password: "password",
           ipAddress: "127.0.0.1",
-          company: "Regional Office",
-          active: 1,
-          createdOn: Math.floor(Date.now() / 1000),
-          groupId: 4, // Regional group
+          role: "regional",
+          gender: null,
+          dateOfBirth: null,
+          country: null,
+          state: null,
+          district: null,
+          education: null,
+          profession: null,
+          company: null,
         },
         {
           username: "branch",
@@ -972,15 +922,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           phone: "1234567894",
           password: "password",
           ipAddress: "127.0.0.1",
-          company: "Branch Office",
-          active: 1,
-          createdOn: Math.floor(Date.now() / 1000),
-          groupId: 5, // Branch group
+          role: "branch",
+          gender: null,
+          dateOfBirth: null,
+          country: null,
+          state: null,
+          district: null,
+          education: null,
+          profession: null,
+          company: null,
         }
       ];
 
       for (const userData of demoUsers) {
-        await mysqlStorage.createUser(userData);
+        await storage.createUser(userData);
       }
 
       res.json({ message: "Demo users created successfully" });

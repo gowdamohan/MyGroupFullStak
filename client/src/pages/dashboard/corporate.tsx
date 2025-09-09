@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import StatsCard from "@/components/dashboard/StatsCard";
 import ChartCard from "@/components/dashboard/ChartCard";
-import { corporateMenuItems } from "@/config/corporate_menu";
 
 export default function CorporateDashboard() {
   const [selectedPeriod, setSelectedPeriod] = useState('30d');
@@ -40,13 +39,21 @@ export default function CorporateDashboard() {
     })
   });
 
-
+  const menuItems = [
+    { icon: 'bi-speedometer2', label: 'Dashboard', path: '/dashboard/corporate', active: true },
+    { icon: 'bi-diagram-3', label: 'Regional Overview', path: '/dashboard/corporate/regions' },
+    { icon: 'bi-building', label: 'Branch Management', path: '/dashboard/corporate/branches' },
+    { icon: 'bi-people', label: 'Employee Management', path: '/dashboard/corporate/employees' },
+    { icon: 'bi-graph-up', label: 'Performance Analytics', path: '/dashboard/corporate/analytics' },
+    { icon: 'bi-file-earmark-check', label: 'Approvals', path: '/dashboard/corporate/approvals' },
+    { icon: 'bi-gear', label: 'Corporate Settings', path: '/dashboard/corporate/settings' },
+  ];
 
   return (
-    <DashboardLayout
-      title="Corporate Dashboard"
+    <DashboardLayout 
+      title="Corporate Dashboard" 
       userRole="corporate"
-      menuItems={corporateMenuItems}
+      menuItems={menuItems}
     >
       {/* Period Selector */}
       <div className="row mb-4">

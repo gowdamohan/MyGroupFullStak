@@ -15,13 +15,13 @@ export default function MobileHeader({ onProfileClick, onSearch }: MobileHeaderP
           AppHub
         </h5>
         <div className="d-flex align-items-center gap-3">
-          <button
+          <button 
             className="btn btn-outline-primary btn-sm"
-            onClick={() => setLocation('/login')}
-            data-testid="button-role-login"
+            onClick={() => setLocation('/auth/login')}
+            data-testid="button-admin-login"
           >
-            <i className="bi bi-person-badge me-1"></i>
-            Staff Login
+            <i className="bi bi-shield-lock me-1"></i>
+            Admin Login
           </button>
           <div className="position-relative">
             <i 

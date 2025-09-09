@@ -5,15 +5,10 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/use-auth";
-import { AdminRoute, RoleRoute } from "@/components/ProtectedRoute";
+import { AdminRoute } from "@/components/ProtectedRoute";
 import Home from "@/pages/home";
 import LoginPage from "@/pages/login";
 import AdminLoginPage from "@/pages/admin-login";
-import CorporateLoginPage from "@/pages/corporate-login";
-import HeadOfficeLoginPage from "@/pages/head-office-login";
-import RegionalLoginPage from "@/pages/regional-login";
-import BranchLoginPage from "@/pages/branch-login";
-import RoleSelectionPage from "@/pages/role-selection";
 import AdminDashboardPage from "@/pages/admin-dashboard";
 import AdminDashboard from "@/pages/dashboard/admin";
 import CorporateDashboard from "@/pages/dashboard/corporate";
@@ -48,42 +43,17 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
-      <Route path="/login" component={RoleSelectionPage} />
       <Route path="/auth/login" component={LoginPage} />
       <Route path="/admin/login" component={AdminLoginPage} />
-      <Route path="/corporate/login" component={CorporateLoginPage} />
-      <Route path="/head-office/login" component={HeadOfficeLoginPage} />
-      <Route path="/regional/login" component={RegionalLoginPage} />
-      <Route path="/branch/login" component={BranchLoginPage} />
       <Route path="/admin/dashboard">
         <AdminRoute>
           <AdminDashboardPage />
         </AdminRoute>
       </Route>
       <Route path="/dashboard/admin">
-        <RoleRoute role="admin">
+        <AdminRoute>
           <AdminDashboard />
-        </RoleRoute>
-      </Route>
-      <Route path="/dashboard/corporate">
-        <RoleRoute role="corporate">
-          <CorporateDashboard />
-        </RoleRoute>
-      </Route>
-      <Route path="/dashboard/regional">
-        <RoleRoute role="regional">
-          <RegionalDashboard />
-        </RoleRoute>
-      </Route>
-      <Route path="/dashboard/branch">
-        <RoleRoute role="branch">
-          <BranchDashboard />
-        </RoleRoute>
-      </Route>
-      <Route path="/dashboard/head-office">
-        <RoleRoute role="head_office">
-          <HeadOfficeDashboard />
-        </RoleRoute>
+        </AdminRoute>
       </Route>
       <Route path="/dashboard/admin/categories">
         <AdminRoute>

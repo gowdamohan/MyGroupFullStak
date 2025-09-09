@@ -89,17 +89,6 @@ app.use((req, res, next) => {
   const server = await registerRoutes(app);
   console.log("Routes registered successfully");
 
-  // Initialize demo users
-  console.log("Initializing demo users...");
-  try {
-    const { MySQLStorage } = await import("./mysql-storage");
-    const mysqlStorage = new MySQLStorage();
-    await mysqlStorage.initializeDemoUsers();
-    console.log("Demo users initialization complete");
-  } catch (error) {
-    console.error("Demo users initialization failed:", error);
-  }
-
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";

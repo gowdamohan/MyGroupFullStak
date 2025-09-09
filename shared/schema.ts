@@ -3,7 +3,7 @@ import { mysqlTable, text, varchar, timestamp, boolean, int, tinyint } from "dri
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Main users table matching your exact MySQL schema
+// Main users table matching the existing MySQL schema
 export const users = mysqlTable("users", {
   id: int("id").primaryKey().autoincrement(),
   ipAddress: varchar("ip_address", { length: 15 }).notNull(),
@@ -25,9 +25,18 @@ export const users = mysqlTable("users", {
   profileImg: varchar("profile_img", { length: 255 }),
   displayName: varchar("display_name", { length: 45 }),
   alterNumber: varchar("alter_number", { length: 45 }),
-  groupId: int("group_id").default(0),
+  groupId: int("group_id"),
   address: text("address"),
   identificationCode: varchar("identification_code", { length: 100 }),
+  // Additional registration fields
+  role: varchar("role", { length: 20 }),
+  gender: varchar("gender", { length: 10 }),
+  dateOfBirth: varchar("date_of_birth", { length: 10 }),
+  country: varchar("country", { length: 50 }),
+  state: varchar("state", { length: 50 }),
+  district: varchar("district", { length: 50 }),
+  education: varchar("education", { length: 100 }),
+  profession: varchar("profession", { length: 100 }),
 });
 
 // Groups table for user roles/permissions
@@ -103,18 +112,22 @@ export const registrationStep1Schema = z.object({
   phone: z.string().min(10, "Phone number must be at least 10 digits"),
   password: z.string().min(8, "Password must be at least 8 characters"),
   confirmPassword: z.string(),
-  company: z.string().optional(),
+  role: z.enum(['user', 'admin', 'corporate', 'regional', 'branch']).default('user'),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],
 });
 
-// Registration Step 2 Schema (Additional Details) - Only using existing columns
+// Registration Step 2 Schema (Additional Details)
 export const registrationStep2Schema = z.object({
-  displayName: z.string().optional(),
-  alterNumber: z.string().optional(),
-  address: z.string().optional(),
-  identificationCode: z.string().optional(),
+  gender: z.string().optional(),
+  dateOfBirth: z.string().optional(),
+  country: z.string().optional(),
+  state: z.string().optional(),
+  district: z.string().optional(),
+  education: z.string().optional(),
+  profession: z.string().optional(),
+  company: z.string().optional(),
 });
 
 // Group create schema (for existing table)
