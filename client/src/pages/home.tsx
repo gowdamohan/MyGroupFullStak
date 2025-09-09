@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
+import { useAuth } from "@/hooks/use-auth";
 import MobileHeader from "@/components/mobile/MobileHeader";
 import AppsGrid from "@/components/mobile/AppsGrid";
 import AdsCarousel from "@/components/mobile/AdsCarousel";
@@ -10,7 +11,7 @@ import RegistrationModal from "@/components/modals/RegistrationModal";
 
 export default function Home() {
   const [, setLocation] = useLocation();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { isAuthenticated } = useAuth();
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showRegistrationModal, setShowRegistrationModal] = useState(false);
 
@@ -34,12 +35,10 @@ export default function Home() {
   }, [isAuthenticated]);
 
   const handleLogin = () => {
-    setIsAuthenticated(true);
     setShowLoginModal(false);
   };
 
   const handleRegistration = () => {
-    setIsAuthenticated(true);
     setShowRegistrationModal(false);
   };
 

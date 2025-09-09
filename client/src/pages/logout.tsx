@@ -1,32 +1,26 @@
 import { useEffect } from "react";
 import { useLocation } from "wouter";
-import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function Logout() {
   const [, setLocation] = useLocation();
+  const { logout } = useAuth();
 
   useEffect(() => {
     const handleLogout = async () => {
       try {
-        await apiRequest('/api/auth/logout', {
-          method: 'POST'
-        });
-        
-        // Clear any local storage or session data
-        localStorage.removeItem('user');
-        sessionStorage.clear();
-        
+        await logout();
         // Redirect to login page
-        setLocation('/login');
+        setLocation('/auth/login');
       } catch (error) {
         console.error('Logout error:', error);
         // Even if logout fails, redirect to login
-        setLocation('/login');
+        setLocation('/auth/login');
       }
     };
 
     handleLogout();
-  }, [setLocation]);
+  }, [logout, setLocation]);
 
   return (
     <div className="d-flex justify-content-center align-items-center min-vh-100">

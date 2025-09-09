@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/use-auth";
 import { apiRequest } from "@/lib/queryClient";
 import type { Login, RegistrationStep1, RegistrationStep2 } from "@shared/schema";
 
@@ -9,6 +10,7 @@ export default function LoginPage() {
   const [, setLocation] = useLocation();
   const [isRegistering, setIsRegistering] = useState(false);
   const [registrationStep, setRegistrationStep] = useState(1);
+  const { login } = useAuth();
 
   // Login form data
   const [formData, setFormData] = useState<Login>({
@@ -70,59 +72,22 @@ export default function LoginPage() {
   const filteredStates = states.filter(state => state.countryCode === step2Data.country);
   const filteredDistricts = districts.filter(district => district.stateCode === step2Data.state);
 
-  const loginMutation = useMutation({
-    mutationFn: async (data: Login) => {
-      const response = await apiRequest('/api/auth/login', {
-        method: 'POST',
-        body: JSON.stringify(data),
-        headers: { 'Content-Type': 'application/json' }
-      });
-      return await response.json();
-    },
-    onSuccess: (data: any) => {
-      // Store JWT token if provided
-      if (data.token) {
-        localStorage.setItem('authToken', data.token);
-      }
+  const handleLogin = async (data: Login) => {
+    try {
+      await login(data);
 
-      toast({
-        title: "Login Successful",
-        description: `Welcome back, ${data.user.firstName}!`,
-      });
-
-      // Redirect based on user role
-      switch(data.user.role) {
-        case 'admin':
-          setLocation('/dashboard/admin');
-          break;
-        case 'corporate':
-          setLocation('/dashboard/corporate');
-          break;
-        case 'head_office':
-          setLocation('/dashboard/head-office');
-          break;
-        case 'regional':
-          setLocation('/dashboard/regional');
-          break;
-        case 'branch':
-          setLocation('/dashboard/branch');
-          break;
-        default:
-          setLocation('/');
-      }
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Login Failed",
-        description: error.message || "Invalid username or password",
-        variant: "destructive",
-      });
+      // Redirect to home page after successful login
+      // The auth hook will handle role-based redirects if needed
+      setLocation('/');
+    } catch (error) {
+      // Error handling is done in the auth hook
+      console.error('Login error:', error);
     }
-  });
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.username.trim()) {
       toast({
         title: "Error",
@@ -134,14 +99,14 @@ export default function LoginPage() {
 
     if (!formData.password.trim()) {
       toast({
-        title: "Error", 
+        title: "Error",
         description: "Please enter your password",
         variant: "destructive",
       });
       return;
     }
 
-    loginMutation.mutate(formData);
+    handleLogin(formData);
   };
 
   const handleInputChange = (field: keyof Login, value: string) => {

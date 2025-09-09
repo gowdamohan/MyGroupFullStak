@@ -41,7 +41,14 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
+    // Get JWT token from localStorage
+    const token = localStorage.getItem('authToken');
+
     const res = await fetch(queryKey.join("/") as string, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` }),
+      },
       credentials: "include",
     });
 

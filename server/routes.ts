@@ -24,7 +24,7 @@ import {
 // JWT Secret - In production, this should be in environment variables
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production';
 
-// Extend Express Request type to include session
+// Extend Express Request type to include session and user
 declare module 'express-session' {
   interface SessionData {
     userId?: string;
@@ -32,12 +32,109 @@ declare module 'express-session' {
   }
 }
 
-// Extend Express Request type to include files from express-fileupload
+// Extend Express Request type to include files from express-fileupload and user
 declare module 'express' {
   interface Request {
     files?: any;
+    user?: any;
+    userRole?: string;
   }
 }
+
+// JWT Authentication Middleware
+const authenticateJWT = async (req: any, res: any, next: any) => {
+  try {
+    // Check for JWT token in Authorization header
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: "Access token required" });
+    }
+
+    const token = authHeader.substring(7);
+
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET) as any;
+
+      // Get user from database to ensure they still exist and are active
+      const user = await mysqlStorage.getUser(decoded.userId);
+      if (!user) {
+        return res.status(401).json({ error: "Invalid token - user not found" });
+      }
+
+      // Attach user info to request
+      req.user = user;
+      req.userId = decoded.userId;
+      req.userRole = decoded.role;
+
+      // Also set session for backward compatibility
+      req.session.userId = decoded.userId.toString();
+      req.session.userRole = decoded.role;
+
+      next();
+    } catch (jwtError) {
+      console.log('JWT verification failed:', jwtError);
+      return res.status(401).json({ error: "Invalid or expired token" });
+    }
+  } catch (error) {
+    console.error('Authentication middleware error:', error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+// Optional JWT Authentication (doesn't fail if no token)
+const optionalAuthenticateJWT = async (req: any, res: any, next: any) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+
+      try {
+        const decoded = jwt.verify(token, JWT_SECRET) as any;
+        const user = await mysqlStorage.getUser(decoded.userId);
+
+        if (user) {
+          req.user = user;
+          req.userId = decoded.userId;
+          req.userRole = decoded.role;
+          req.session.userId = decoded.userId.toString();
+          req.session.userRole = decoded.role;
+        }
+      } catch (jwtError) {
+        // Ignore JWT errors for optional auth
+        console.log('Optional JWT verification failed:', jwtError);
+      }
+    }
+    next();
+  } catch (error) {
+    console.error('Optional authentication middleware error:', error);
+    next(); // Continue even if there's an error
+  }
+};
+
+// Role-based authorization middleware
+const requireRole = (allowedRoles: string[]) => {
+  return async (req: any, res: any, next: any) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      if (!allowedRoles.includes(req.userRole)) {
+        return res.status(403).json({
+          error: `Access denied. Required role: ${allowedRoles.join(' or ')}`
+        });
+      }
+
+      next();
+    } catch (error) {
+      console.error('Role authorization error:', error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  };
+};
+
+// Admin-only middleware
+const requireAdmin = requireRole(['admin']);
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize groups and users_groups tables
@@ -210,65 +307,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  // Admin middleware
-  const requireAdmin = async (req: any, res: any, next: any) => {
-    if (!req.session.userId) {
-      return res.status(401).json({ error: "Not authenticated" });
-    }
-
-    if (req.session.userRole !== 'admin') {
-      return res.status(403).json({ error: "Admin access required" });
-    }
-
-    next();
-  };
-
-  app.get("/api/auth/me", async (req, res) => {
-    if (!req.session.userId) {
-      return res.status(401).json({ error: "Not authenticated" });
-    }
-
+  app.get("/api/auth/me", authenticateJWT, async (req: any, res) => {
     try {
-      // Try to get user from MySQL storage
-      const userId = parseInt(req.session.userId);
-      if (!isNaN(userId)) {
-        const user = await mysqlStorage.getUser(userId);
-        if (user) {
-          const isAdmin = await mysqlStorage.isAdmin(userId);
-          const { password: _, salt: __, ...userWithoutPassword } = user;
-          return res.json({
-            user: userWithoutPassword,
-            userId: req.session.userId,
-            userRole: req.session.userRole,
-            isAdmin
-          });
-        }
-      }
+      const user = req.user;
+      const isAdmin = await mysqlStorage.isAdmin(user.id);
+      const { password: _, salt: __, ...userWithoutPassword } = user;
 
-      // Fallback to session data
       res.json({
-        userId: req.session.userId,
-        userRole: req.session.userRole,
-        isAdmin: req.session.userRole === 'admin'
+        user: userWithoutPassword,
+        userId: user.id,
+        userRole: req.userRole,
+        isAdmin
       });
     } catch (error) {
       console.error("Error getting user info:", error);
-      res.json({
-        userId: req.session.userId,
-        userRole: req.session.userRole,
-        isAdmin: req.session.userRole === 'admin'
-      });
+      res.status(500).json({ error: "Internal server error" });
     }
   });
 
   // Admin dashboard route
-  app.get("/api/admin/dashboard", requireAdmin, async (req, res) => {
+  app.get("/api/admin/dashboard", authenticateJWT, requireAdmin, async (req: any, res) => {
     try {
       // Get admin dashboard data
       res.json({
         message: "Welcome to admin dashboard",
         timestamp: new Date().toISOString(),
-        adminId: req.session.userId
+        adminId: req.user.id
       });
     } catch (error) {
       console.error("Admin dashboard error:", error);
@@ -359,13 +423,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ===== ADMIN USER MANAGEMENT API ROUTES =====
 
   // Get all users for admin dashboard
-  app.get("/api/admin/users", async (req, res) => {
+  app.get("/api/admin/users", authenticateJWT, requireAdmin, async (req, res) => {
     try {
-      // Check admin authentication
-      if (!req.session.userId || req.session.userRole !== 'admin') {
-        return res.status(401).json({ error: "Admin authentication required" });
-      }
-
       // Get all users from MySQL storage
       const users = await mysqlStorage.getAllUsers();
       res.json(users);
@@ -376,13 +435,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete user
-  app.delete("/api/admin/users/:id", async (req, res) => {
+  app.delete("/api/admin/users/:id", authenticateJWT, requireAdmin, async (req, res) => {
     try {
-      // Check admin authentication
-      if (!req.session.userId || req.session.userRole !== 'admin') {
-        return res.status(401).json({ error: "Admin authentication required" });
-      }
-
       const userId = parseInt(req.params.id);
       const success = await mysqlStorage.deleteUser(userId);
 
@@ -400,13 +454,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ===== PROFILE MANAGEMENT API ROUTES =====
 
   // Group Management Routes (using group_create table)
-  app.get("/api/admin/groups", async (req, res) => {
+  app.get("/api/admin/groups", authenticateJWT, requireAdmin, async (req, res) => {
     try {
-      // Check admin authentication
-      if (!req.session.userId || req.session.userRole !== 'admin') {
-        return res.status(401).json({ error: "Admin authentication required" });
-      }
-
       const groups = await mysqlStorage.getAllGroups();
       res.json(groups);
     } catch (error) {
@@ -415,13 +464,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/groups", async (req, res) => {
+  app.post("/api/admin/groups", authenticateJWT, requireAdmin, async (req, res) => {
     try {
-      // Check admin authentication
-      if (!req.session.userId || req.session.userRole !== 'admin') {
-        return res.status(401).json({ error: "Admin authentication required" });
-      }
-
       const groupData = groupCreateSchema.parse(req.body);
       const newGroup = await mysqlStorage.createGroup(groupData);
       res.status(201).json(newGroup);
@@ -434,13 +478,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/admin/groups/:id", async (req, res) => {
+  app.put("/api/admin/groups/:id", authenticateJWT, requireAdmin, async (req, res) => {
     try {
-      // Check admin authentication
-      if (!req.session.userId || req.session.userRole !== 'admin') {
-        return res.status(401).json({ error: "Admin authentication required" });
-      }
-
       const groupId = parseInt(req.params.id);
       const groupData = groupCreateSchema.parse(req.body);
       const updatedGroup = await mysqlStorage.updateGroup(groupId, groupData);
@@ -459,13 +498,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/admin/groups/:id", async (req, res) => {
+  app.delete("/api/admin/groups/:id", authenticateJWT, requireAdmin, async (req, res) => {
     try {
-      // Check admin authentication
-      if (!req.session.userId || req.session.userRole !== 'admin') {
-        return res.status(401).json({ error: "Admin authentication required" });
-      }
-
       const groupId = parseInt(req.params.id);
       const deleted = await mysqlStorage.deleteGroup(groupId);
 
@@ -601,15 +635,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Change Password Route
-  app.post("/api/admin/change-password", async (req, res) => {
+  app.post("/api/admin/change-password", authenticateJWT, requireAdmin, async (req: any, res) => {
     try {
-      // Check admin authentication
-      if (!req.session.userId || req.session.userRole !== 'admin') {
-        return res.status(401).json({ error: "Admin authentication required" });
-      }
-
       const passwordData = changePasswordSchema.parse(req.body);
-      const userId = parseInt(req.session.userId);
+      const userId = req.user.id;
 
       // Verify old password
       const user = await mysqlStorage.getUser(userId);
@@ -641,13 +670,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ===== FILE UPLOAD API ROUTES =====
 
   // File upload route for profile assets
-  app.post("/api/admin/upload", async (req, res) => {
+  app.post("/api/admin/upload", authenticateJWT, requireAdmin, async (req, res) => {
     try {
-      // Check admin authentication
-      if (!req.session.userId || req.session.userRole !== 'admin') {
-        return res.status(401).json({ error: "Admin authentication required" });
-      }
-
       if (!req.files || Object.keys(req.files).length === 0) {
         return res.status(400).json({ error: "No files were uploaded" });
       }
@@ -893,7 +917,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ===== CONTENT MANAGEMENT API ROUTES =====
 
   // Continent Routes
-  app.get("/api/admin/continents", requireAdmin, async (req, res) => {
+  app.get("/api/admin/continents", authenticateJWT, requireAdmin, async (req, res) => {
     try {
       const continents = await mysqlStorage.getAllContinents();
       res.json(continents);
@@ -903,7 +927,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/continents/:id", requireAdmin, async (req, res) => {
+  app.get("/api/admin/continents/:id", authenticateJWT, requireAdmin, async (req, res) => {
     try {
       const continentId = parseInt(req.params.id);
       const continent = await mysqlStorage.getContinentById(continentId);
@@ -919,7 +943,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/continents", requireAdmin, async (req, res) => {
+  app.post("/api/admin/continents", authenticateJWT, requireAdmin, async (req, res) => {
     try {
       const continentData = continentSchema.parse(req.body);
       const newContinent = await mysqlStorage.createContinent(continentData);
@@ -933,7 +957,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/admin/continents/:id", requireAdmin, async (req, res) => {
+  app.put("/api/admin/continents/:id", authenticateJWT, requireAdmin, async (req, res) => {
     try {
       const continentId = parseInt(req.params.id);
       const continentData = continentSchema.parse(req.body);
@@ -953,7 +977,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/admin/continents/:id", requireAdmin, async (req, res) => {
+  app.delete("/api/admin/continents/:id", authenticateJWT, requireAdmin, async (req, res) => {
     try {
       const continentId = parseInt(req.params.id);
       const deleted = await mysqlStorage.deleteContinent(continentId);

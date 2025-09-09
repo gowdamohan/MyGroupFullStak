@@ -4,6 +4,8 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { AuthProvider } from "@/hooks/use-auth";
+import { AdminRoute } from "@/components/ProtectedRoute";
 import Home from "@/pages/home";
 import LoginPage from "@/pages/login";
 import AdminLoginPage from "@/pages/admin-login";
@@ -43,78 +45,112 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/auth/login" component={LoginPage} />
       <Route path="/admin/login" component={AdminLoginPage} />
-      <Route path="/admin/dashboard" component={AdminDashboardPage} />
-      <Route path="/dashboard/admin" component={AdminDashboard} />
+      <Route path="/admin/dashboard">
+        <AdminRoute>
+          <AdminDashboardPage />
+        </AdminRoute>
+      </Route>
+      <Route path="/dashboard/admin">
+        <AdminRoute>
+          <AdminDashboard />
+        </AdminRoute>
+      </Route>
       <Route path="/dashboard/admin/categories">
-        <Suspense fallback={<div className="text-center p-5"><div className="spinner-border"></div></div>}>
-          <AdminCategories />
-        </Suspense>
+        <AdminRoute>
+          <Suspense fallback={<div className="text-center p-5"><div className="spinner-border"></div></div>}>
+            <AdminCategories />
+          </Suspense>
+        </AdminRoute>
       </Route>
       <Route path="/dashboard/admin/admin-settings">
-        <Suspense fallback={<div className="text-center p-5"><div className="spinner-border"></div></div>}>
-          <AdminSettings />
-        </Suspense>
+        <AdminRoute>
+          <Suspense fallback={<div className="text-center p-5"><div className="spinner-border"></div></div>}>
+            <AdminSettings />
+          </Suspense>
+        </AdminRoute>
       </Route>
       <Route path="/dashboard/admin/corporate-login">
-        <Suspense fallback={<div className="text-center p-5"><div className="spinner-border"></div></div>}>
-          <AdminCorporateLogin />
-        </Suspense>
+        <AdminRoute>
+          <Suspense fallback={<div className="text-center p-5"><div className="spinner-border"></div></div>}>
+            <AdminCorporateLogin />
+          </Suspense>
+        </AdminRoute>
       </Route>
 
       {/* Profile Routes */}
       <Route path="/dashboard/admin/profile/group">
-        <Suspense fallback={<div className="text-center p-5"><div className="spinner-border"></div></div>}>
-          <ProfileGroup />
-        </Suspense>
+        <AdminRoute>
+          <Suspense fallback={<div className="text-center p-5"><div className="spinner-border"></div></div>}>
+            <ProfileGroup />
+          </Suspense>
+        </AdminRoute>
       </Route>
       <Route path="/dashboard/admin/profile/app-created">
-        <Suspense fallback={<div className="text-center p-5"><div className="spinner-border"></div></div>}>
-          <ProfileAppCreated />
-        </Suspense>
+        <AdminRoute>
+          <Suspense fallback={<div className="text-center p-5"><div className="spinner-border"></div></div>}>
+            <ProfileAppCreated />
+          </Suspense>
+        </AdminRoute>
       </Route>
       <Route path="/dashboard/admin/profile/change-password">
-        <Suspense fallback={<div className="text-center p-5"><div className="spinner-border"></div></div>}>
-          <ProfileChangePassword />
-        </Suspense>
+        <AdminRoute>
+          <Suspense fallback={<div className="text-center p-5"><div className="spinner-border"></div></div>}>
+            <ProfileChangePassword />
+          </Suspense>
+        </AdminRoute>
       </Route>
 
       {/* Location Routes */}
       <Route path="/dashboard/admin/location/content">
-        <Suspense fallback={<div className="text-center p-5"><div className="spinner-border"></div></div>}>
-          <LocationContent />
-        </Suspense>
+        <AdminRoute>
+          <Suspense fallback={<div className="text-center p-5"><div className="spinner-border"></div></div>}>
+            <LocationContent />
+          </Suspense>
+        </AdminRoute>
       </Route>
       <Route path="/dashboard/admin/location/country">
-        <Suspense fallback={<div className="text-center p-5"><div className="spinner-border"></div></div>}>
-          <LocationCountry />
-        </Suspense>
+        <AdminRoute>
+          <Suspense fallback={<div className="text-center p-5"><div className="spinner-border"></div></div>}>
+            <LocationCountry />
+          </Suspense>
+        </AdminRoute>
       </Route>
       <Route path="/dashboard/admin/location/state">
-        <Suspense fallback={<div className="text-center p-5"><div className="spinner-border"></div></div>}>
-          <LocationState />
-        </Suspense>
+        <AdminRoute>
+          <Suspense fallback={<div className="text-center p-5"><div className="spinner-border"></div></div>}>
+            <LocationState />
+          </Suspense>
+        </AdminRoute>
       </Route>
       <Route path="/dashboard/admin/location/district">
-        <Suspense fallback={<div className="text-center p-5"><div className="spinner-border"></div></div>}>
-          <LocationDistrict />
-        </Suspense>
+        <AdminRoute>
+          <Suspense fallback={<div className="text-center p-5"><div className="spinner-border"></div></div>}>
+            <LocationDistrict />
+          </Suspense>
+        </AdminRoute>
       </Route>
 
       {/* Management Routes */}
       <Route path="/dashboard/admin/language">
-        <Suspense fallback={<div className="text-center p-5"><div className="spinner-border"></div></div>}>
-          <LanguageManagement />
-        </Suspense>
+        <AdminRoute>
+          <Suspense fallback={<div className="text-center p-5"><div className="spinner-border"></div></div>}>
+            <LanguageManagement />
+          </Suspense>
+        </AdminRoute>
       </Route>
       <Route path="/dashboard/admin/education">
-        <Suspense fallback={<div className="text-center p-5"><div className="spinner-border"></div></div>}>
-          <EducationManagement />
-        </Suspense>
+        <AdminRoute>
+          <Suspense fallback={<div className="text-center p-5"><div className="spinner-border"></div></div>}>
+            <EducationManagement />
+          </Suspense>
+        </AdminRoute>
       </Route>
       <Route path="/dashboard/admin/profession">
-        <Suspense fallback={<div className="text-center p-5"><div className="spinner-border"></div></div>}>
-          <ProfessionManagement />
-        </Suspense>
+        <AdminRoute>
+          <Suspense fallback={<div className="text-center p-5"><div className="spinner-border"></div></div>}>
+            <ProfessionManagement />
+          </Suspense>
+        </AdminRoute>
       </Route>
       <Route path="/dashboard/corporate" component={CorporateDashboard} />
       <Route path="/dashboard/regional" component={RegionalDashboard} />
@@ -129,10 +165,12 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Router />
-      </TooltipProvider>
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Router />
+        </TooltipProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
