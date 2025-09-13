@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -17,7 +17,7 @@ function AdminSettings() {
     { icon: 'bi-tags', label: 'Create Category', path: '/dashboard/admin/categories' },
     { icon: 'bi-gear', label: 'Admin Settings', path: '/dashboard/admin/admin-settings', active: true },
     { icon: 'bi-box-arrow-in-right', label: 'Corporate Login', path: '/dashboard/admin/corporate-login' },
-    { icon: 'bi-box-arrow-right', label: 'Logout', path: '/logout' },
+    { icon: 'bi-box-arrow-right', label: 'Logout' },
   ];
 
   // Fetch 'My Apps' list with account status

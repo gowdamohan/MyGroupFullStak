@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -169,11 +169,11 @@ export default function StateManagement({ className = "" }: StateManagementProps
   const handleEdit = (state: State) => {
     setEditingState(state);
     setStateForm({
-      countryId: state.countryId,
-      state: state.state,
+      countryId: state.countryId || 0,
+      state: state.state || '',
       order: state.order || 0,
       status: state.status || 1,
-      code: state.code,
+      code: state.code || '',
     });
     setShowCreateModal(true);
   };
@@ -290,7 +290,7 @@ export default function StateManagement({ className = "" }: StateManagementProps
               <div className="grid gap-2">
                 <Label htmlFor="country">Country *</Label>
                 <Select
-                  value={stateForm.countryId.toString()}
+                  value={stateForm.countryId ? stateForm.countryId.toString() : ""}
                   onValueChange={(value) => setStateForm(prev => ({ ...prev, countryId: parseInt(value) }))}
                 >
                   <SelectTrigger>

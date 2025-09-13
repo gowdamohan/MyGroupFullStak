@@ -1,4 +1,5 @@
-import { Switch, Route } from "wouter";
+import React from "react";
+import { Switch, Route, useLocation } from "wouter";
 import { lazy, Suspense } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -15,7 +16,6 @@ import CorporateDashboard from "@/pages/dashboard/corporate";
 import RegionalDashboard from "@/pages/dashboard/regional";
 import BranchDashboard from "@/pages/dashboard/branch";
 import HeadOfficeDashboard from "@/pages/dashboard/head-office";
-import Logout from "@/pages/logout";
 import NotFound from "@/pages/not-found";
 
 // Lazy load admin sub-pages
@@ -44,6 +44,15 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/auth/login" component={LoginPage} />
+      <Route path="/login">
+        {() => {
+          const [, setLocation] = useLocation();
+          React.useEffect(() => {
+            setLocation('/auth/login');
+          }, [setLocation]);
+          return null;
+        }}
+      </Route>
       <Route path="/admin/login" component={AdminLoginPage} />
       <Route path="/admin/dashboard">
         <AdminRoute>
@@ -156,7 +165,6 @@ function Router() {
       <Route path="/dashboard/regional" component={RegionalDashboard} />
       <Route path="/dashboard/branch" component={BranchDashboard} />
       <Route path="/dashboard/head-office" component={HeadOfficeDashboard} />
-      <Route path="/logout" component={Logout} />
       <Route component={NotFound} />
     </Switch>
   );

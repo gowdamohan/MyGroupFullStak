@@ -180,13 +180,15 @@ export const countryTbl = mysqlTable("country_tbl", {
   id: int("id").primaryKey().autoincrement(),
   continentId: int("continent_id"),
   country: varchar("country", { length: 100 }),
-  order: tinyint("order"),
-  status: tinyint("status"),
+  orderBy: int("order_by").default(0),
+  status: tinyint("status").default(1),
   code: varchar("code", { length: 45 }),
-  currency: varchar("currency", { length: 45 }),
-  countryFlag: text("country_flag"),
-  phoneCode: varchar("phone_code", { length: 100 }),
+  currency: varchar("currency", { length: 10 }),
+  countryFlag: varchar("country_flag", { length: 255 }),
+  phoneCode: varchar("phone_code", { length: 10 }),
   nationality: varchar("nationality", { length: 100 }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
 });
 
 export const stateTbl = mysqlTable("state_tbl", {
@@ -228,7 +230,7 @@ export const continentSchema = z.object({
 export const countrySchema = z.object({
   continentId: z.number().min(1, "Continent is required"),
   country: z.string().min(1, "Country name is required"),
-  order: z.number().default(0),
+  orderBy: z.number().default(0),
   status: z.number().default(1),
   code: z.string().min(1, "Country code is required").max(45),
   currency: z.string().optional(),

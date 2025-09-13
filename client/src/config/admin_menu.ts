@@ -86,8 +86,8 @@ export const adminMenuItems: MenuItem[] = [
   },
   {
     icon: 'bi-box-arrow-right',
-    label: 'Logout',
-    path: '/logout'
+    label: 'Logout'
+    // No path - will be handled by click handler
   }
 ];
 

@@ -8,7 +8,7 @@ export default defineConfig({
     host: "localhost",
     port: 3306,
     user: "root",
-    password: "MyGroup@2025!",
+    password: "admin",
     database: "my_group",
   },
 });

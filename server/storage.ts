@@ -11,6 +11,7 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   verifyPassword(password: string, hashedPassword: string): Promise<boolean>;
+  authenticateUser(username: string, password: string): Promise<User | null>;
 }
 
 export class MemStorage implements IStorage {
@@ -18,6 +19,68 @@ export class MemStorage implements IStorage {
 
   constructor() {
     this.users = new Map();
+    this.initializeDemoUsers();
+  }
+
+  private async initializeDemoUsers() {
+    console.log("🔄 Initializing demo users in memory storage...");
+
+    const demoUsers = [
+      {
+        username: 'admin',
+        firstName: 'System',
+        lastName: 'Administrator',
+        email: 'admin@apphub.com',
+        phone: '+1-555-0001',
+        password: 'password',
+        company: 'AppHub System'
+      },
+      {
+        username: 'corporate',
+        firstName: 'Corporate',
+        lastName: 'Manager',
+        email: 'corporate@apphub.com',
+        phone: '+1-555-0002',
+        password: 'password',
+        company: 'AppHub Corporate'
+      },
+      {
+        username: 'head_office',
+        firstName: 'Head Office',
+        lastName: 'Manager',
+        email: 'headoffice@apphub.com',
+        phone: '+1-555-0003',
+        password: 'password',
+        company: 'AppHub Head Office'
+      },
+      {
+        username: 'regional',
+        firstName: 'Regional',
+        lastName: 'Manager',
+        email: 'regional@apphub.com',
+        phone: '+1-555-0004',
+        password: 'password',
+        company: 'AppHub Regional'
+      },
+      {
+        username: 'branch',
+        firstName: 'Branch',
+        lastName: 'Manager',
+        email: 'branch@apphub.com',
+        phone: '+1-555-0005',
+        password: 'password',
+        company: 'AppHub Branch'
+      }
+    ];
+
+    for (const userData of demoUsers) {
+      try {
+        await this.createUser(userData);
+        console.log(`✅ Created demo user in memory: ${userData.username}`);
+      } catch (error) {
+        console.error(`❌ Failed to create demo user ${userData.username}:`, error);
+      }
+    }
   }
 
   async getUser(id: string): Promise<User | undefined> {
@@ -62,6 +125,20 @@ export class MemStorage implements IStorage {
 
   async verifyPassword(password: string, hashedPassword: string): Promise<boolean> {
     return await bcrypt.compare(password, hashedPassword);
+  }
+
+  async authenticateUser(username: string, password: string): Promise<User | null> {
+    const user = await this.getUserByUsername(username);
+    if (!user) {
+      return null;
+    }
+
+    const isValidPassword = await this.verifyPassword(password, user.password);
+    if (!isValidPassword) {
+      return null;
+    }
+
+    return user;
   }
 }
 

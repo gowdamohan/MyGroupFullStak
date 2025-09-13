@@ -1,4 +1,4 @@
-import React, { ReactNode } from 'react';
+import React, { ReactNode, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { useAuth } from '@/hooks/use-auth';
 
@@ -9,14 +9,25 @@ interface ProtectedRouteProps {
   redirectTo?: string;
 }
 
-export function ProtectedRoute({ 
-  children, 
-  requiredRole, 
-  adminOnly = false, 
-  redirectTo = '/login' 
+export function ProtectedRoute({
+  children,
+  requiredRole,
+  adminOnly = false,
+  redirectTo = '/auth/login'
 }: ProtectedRouteProps) {
   const { user, isAuthenticated, isLoading } = useAuth();
   const [, setLocation] = useLocation();
+
+  // Handle redirects in useEffect to avoid setState during render
+  useEffect(() => {
+    // Only redirect if we're sure the user is not authenticated
+    // (not loading and no token in localStorage)
+    const token = localStorage.getItem('authToken');
+    if (!isLoading && !isAuthenticated && !token) {
+      console.log('🔄 ProtectedRoute: Redirecting to login - no token found');
+      setLocation(redirectTo);
+    }
+  }, [isLoading, isAuthenticated, redirectTo, setLocation]);
 
   // Show loading spinner while checking authentication
   if (isLoading) {
@@ -32,10 +43,10 @@ export function ProtectedRoute({
     );
   }
 
-  // Redirect if not authenticated
-  if (!isAuthenticated) {
-    setLocation(redirectTo);
-    return null;
+  // Redirect if not authenticated and no token exists
+  const token = localStorage.getItem('authToken');
+  if (!isAuthenticated && !token) {
+    return null; // useEffect will handle the redirect
   }
 
   // Check admin access

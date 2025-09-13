@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/use-auth";
 
 interface SubMenuItem {
   icon: string;
@@ -29,14 +30,21 @@ export default function DashboardLayout({ title, userRole, menuItems, children }
   const [, setLocation] = useLocation();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set());
+  const { logout } = useAuth();
 
-  // Fetch categories for the Categories menu
+  // Fetch categories for the Categories menu based on user role
   const categoriesQuery = useQuery({
-    queryKey: ['menu-categories-v2'],
+    queryKey: ['menu-categories-v2', userRole],
     queryFn: async () => {
       try {
-        console.log('🔍 Fetching menu categories...');
-        const response = await apiRequest('/api/admin/menu-categories');
+        console.log('🔍 Fetching menu categories for role:', userRole);
+
+        // Use different endpoints based on user role
+        const endpoint = userRole === 'admin'
+          ? '/api/admin/menu-categories'
+          : `/api/${userRole}/menu-categories`;
+
+        const response = await apiRequest(endpoint);
         const data = await response.json();
         console.log('🔍 Menu categories response:', data);
         // Filter for "My Apps" and sort by order_by
@@ -51,9 +59,15 @@ export default function DashboardLayout({ title, userRole, menuItems, children }
     retry: false,
   });
 
-  const handleLogout = () => {
-    // TODO: Implement actual logout logic
-    setLocation('/auth/login');
+  const handleLogout = async () => {
+    try {
+      // Call the logout function from useAuth
+      await logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Fallback redirect if logout fails
+      setLocation('/auth/login');
+    }
   };
 
   const toggleSubmenu = (label: string) => {
@@ -74,7 +88,7 @@ export default function DashboardLayout({ title, userRole, menuItems, children }
         subItems: categoriesQuery.data?.map((cat: any) => ({
           icon: 'bi-app',
           label: cat.name,
-          path: `/dashboard/admin/categories/${cat.id}`,
+          path: `/dashboard/${userRole}/categories/${cat.id}`,
           active: false
         })) || []
       };
@@ -183,7 +197,9 @@ export default function DashboardLayout({ title, userRole, menuItems, children }
                     className={`nav-link d-flex align-items-center text-white ${item.active ? 'active' : ''}`}
                     onClick={(e) => {
                       e.preventDefault();
-                      if (item.path) {
+                      if (item.label === 'Logout') {
+                        handleLogout();
+                      } else if (item.path) {
                         setLocation(item.path);
                       }
                     }}

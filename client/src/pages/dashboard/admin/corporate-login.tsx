@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -47,7 +47,7 @@ function AdminCorporateLogin() {
     { icon: 'bi-tags', label: 'Create Category', path: '/dashboard/admin/categories' },
     { icon: 'bi-gear', label: 'Admin Settings', path: '/dashboard/admin/admin-settings' },
     { icon: 'bi-box-arrow-in-right', label: 'Corporate Login', path: '/dashboard/admin/corporate-login', active: true },
-    { icon: 'bi-box-arrow-right', label: 'Logout', path: '/logout' },
+    { icon: 'bi-box-arrow-right', label: 'Logout' },
   ];
 
   // Fetch corporate users

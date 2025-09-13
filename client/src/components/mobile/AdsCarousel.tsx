@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import React, { useEffect } from "react";
 import type { CarouselImage } from "@/lib/types";
 
 const defaultImages: CarouselImage[] = [

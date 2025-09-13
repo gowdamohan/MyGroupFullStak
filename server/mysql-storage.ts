@@ -51,15 +51,61 @@ export interface IMySQLStorage {
   getUserWithRole(userId: number): Promise<any>;
   isAdmin(userId: number): Promise<boolean>;
   getAllUsers(): Promise<any[]>;
+  getUsersByRole(role: string): Promise<any[]>;
+  createCorporateUser(userData: any): Promise<any>;
+  updateCorporateUser(userId: number, userData: any): Promise<any>;
+  resetCorporateUserPassword(userId: number): Promise<string>;
   deleteUser(userId: number): Promise<boolean>;
   executeQuery(query: string): Promise<any>;
+  createDemoUsers(): Promise<void>;
+  seedGroupsAndUsers(): Promise<void>;
 }
 
 export class MySQLStorage implements IMySQLStorage {
   async getUser(id: number): Promise<User | undefined> {
     try {
-      const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
-      return result[0];
+      // Select only columns that exist in the actual database
+      const result = await db.select({
+        id: users.id,
+        ipAddress: users.ipAddress,
+        username: users.username,
+        password: users.password,
+        salt: users.salt,
+        email: users.email,
+        activationCode: users.activationCode,
+        forgottenPasswordCode: users.forgottenPasswordCode,
+        forgottenPasswordTime: users.forgottenPasswordTime,
+        rememberCode: users.rememberCode,
+        createdOn: users.createdOn,
+        lastLogin: users.lastLogin,
+        active: users.active,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        company: users.company,
+        phone: users.phone,
+        profileImg: users.profileImg,
+        displayName: users.displayName,
+        alterNumber: users.alterNumber,
+        groupId: users.groupId,
+        address: users.address,
+        identificationCode: users.identificationCode,
+      }).from(users).where(eq(users.id, id)).limit(1);
+      const user = result[0];
+      if (user) {
+        // Add missing properties with default values
+        return {
+          ...user,
+          role: 'user',
+          gender: null,
+          dateOfBirth: null,
+          country: null,
+          state: null,
+          district: null,
+          education: null,
+          profession: null,
+        } as User;
+      }
+      return user;
     } catch (error) {
       console.error("Error getting user by ID:", error);
       return undefined;
@@ -68,8 +114,49 @@ export class MySQLStorage implements IMySQLStorage {
 
   async getUserByUsername(username: string): Promise<User | undefined> {
     try {
-      const result = await db.select().from(users).where(eq(users.username, username)).limit(1);
-      return result[0];
+      // Select only columns that exist in the actual database
+      const result = await db.select({
+        id: users.id,
+        ipAddress: users.ipAddress,
+        username: users.username,
+        password: users.password,
+        salt: users.salt,
+        email: users.email,
+        activationCode: users.activationCode,
+        forgottenPasswordCode: users.forgottenPasswordCode,
+        forgottenPasswordTime: users.forgottenPasswordTime,
+        rememberCode: users.rememberCode,
+        createdOn: users.createdOn,
+        lastLogin: users.lastLogin,
+        active: users.active,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        company: users.company,
+        phone: users.phone,
+        profileImg: users.profileImg,
+        displayName: users.displayName,
+        alterNumber: users.alterNumber,
+        groupId: users.groupId,
+        address: users.address,
+        identificationCode: users.identificationCode,
+      }).from(users).where(eq(users.username, username)).limit(1);
+
+      const user = result[0];
+      if (user) {
+        // Add missing properties with default values
+        return {
+          ...user,
+          role: 'user',
+          gender: null,
+          dateOfBirth: null,
+          country: null,
+          state: null,
+          district: null,
+          education: null,
+          profession: null,
+        } as User;
+      }
+      return user;
     } catch (error) {
       console.error("Error getting user by username:", error);
       return undefined;
@@ -78,8 +165,49 @@ export class MySQLStorage implements IMySQLStorage {
 
   async getUserByEmail(email: string): Promise<User | undefined> {
     try {
-      const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
-      return result[0];
+      // Select only columns that exist in the actual database
+      const result = await db.select({
+        id: users.id,
+        ipAddress: users.ipAddress,
+        username: users.username,
+        password: users.password,
+        salt: users.salt,
+        email: users.email,
+        activationCode: users.activationCode,
+        forgottenPasswordCode: users.forgottenPasswordCode,
+        forgottenPasswordTime: users.forgottenPasswordTime,
+        rememberCode: users.rememberCode,
+        createdOn: users.createdOn,
+        lastLogin: users.lastLogin,
+        active: users.active,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        company: users.company,
+        phone: users.phone,
+        profileImg: users.profileImg,
+        displayName: users.displayName,
+        alterNumber: users.alterNumber,
+        groupId: users.groupId,
+        address: users.address,
+        identificationCode: users.identificationCode,
+      }).from(users).where(eq(users.email, email)).limit(1);
+
+      const user = result[0];
+      if (user) {
+        // Add missing properties with default values
+        return {
+          ...user,
+          role: 'user',
+          gender: null,
+          dateOfBirth: null,
+          country: null,
+          state: null,
+          district: null,
+          education: null,
+          profession: null,
+        } as User;
+      }
+      return user;
     } catch (error) {
       console.error("Error getting user by email:", error);
       return undefined;
@@ -237,6 +365,199 @@ export class MySQLStorage implements IMySQLStorage {
     }
   }
 
+  async getUsersByRole(role: string): Promise<any[]> {
+    try {
+      const query = `
+        SELECT
+          u.id,
+          u.username,
+          u.email,
+          u.first_name as name,
+          u.last_name,
+          u.phone as mobile,
+          u.company,
+          u.active as is_active,
+          u.created_on,
+          u.last_login,
+          g.name as role_name
+        FROM users u
+        LEFT JOIN users_groups ug ON u.id = ug.user_id
+        LEFT JOIN \`groups\` g ON ug.group_id = g.id
+        WHERE u.active = 1 AND g.name = ?
+        ORDER BY u.created_on DESC
+      `;
+
+      const [rows] = await connection.execute(query, [role]);
+
+      // Transform the data to match the expected format
+      const users = (rows as any[]).map(user => ({
+        id: user.id,
+        name: `${user.name || ''} ${user.last_name || ''}`.trim() || user.username,
+        mobile: user.mobile || '',
+        email: user.email,
+        username: user.username,
+        created_at: new Date(user.created_on * 1000).toISOString(),
+        is_active: Boolean(user.is_active)
+      }));
+
+      return users;
+    } catch (error) {
+      console.error(`Error fetching users by role ${role}:`, error);
+      throw error;
+    }
+  }
+
+  async createCorporateUser(userData: any): Promise<any> {
+    try {
+      const { name, mobile, email, username, password } = userData;
+
+      // Validate required fields
+      if (!username || !email || !password) {
+        throw new Error("Username, email, and password are required");
+      }
+
+      // Check if username or email already exists
+      const [existingUser] = await connection.execute(
+        'SELECT id FROM users WHERE username = ? OR email = ?',
+        [username, email]
+      );
+
+      if ((existingUser as any[]).length > 0) {
+        throw new Error("Username or email already exists");
+      }
+
+      // Hash password
+      const hashedPassword = await bcrypt.hash(password, 12);
+
+      // Split name into first and last name
+      const nameParts = name.split(' ');
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.slice(1).join(' ') || '';
+
+      // Insert user
+      const [result] = await connection.execute(`
+        INSERT INTO users (
+          ip_address, username, password, email, first_name, last_name,
+          phone, created_on, active, group_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [
+        '127.0.0.1',
+        username,
+        hashedPassword,
+        email,
+        firstName,
+        lastName,
+        mobile || null,
+        Math.floor(Date.now() / 1000),
+        1,
+        1 // Default group, will be updated below
+      ]);
+
+      const userId = (result as any).insertId;
+
+      // Get corporate group ID
+      const [groupRows] = await connection.execute(
+        'SELECT id FROM `groups` WHERE name = ?',
+        ['corporate']
+      );
+
+      if ((groupRows as any[]).length > 0) {
+        const groupId = (groupRows as any[])[0].id;
+
+        // Update user's group_id
+        await connection.execute(
+          'UPDATE users SET group_id = ? WHERE id = ?',
+          [groupId, userId]
+        );
+
+        // Insert into users_groups table
+        await connection.execute(
+          'INSERT INTO users_groups (user_id, group_id) VALUES (?, ?)',
+          [userId, groupId]
+        );
+      }
+
+      // Return the created user
+      return {
+        id: userId,
+        name,
+        mobile: mobile || '',
+        email,
+        username,
+        created_at: new Date().toISOString(),
+        is_active: true
+      };
+    } catch (error) {
+      console.error("Error creating corporate user:", error);
+      throw error;
+    }
+  }
+
+  async updateCorporateUser(userId: number, userData: any): Promise<any> {
+    try {
+      const { name, mobile, email, username, password } = userData;
+
+      // Split name into first and last name
+      const nameParts = name.split(' ');
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.slice(1).join(' ') || '';
+
+      let updateQuery = `
+        UPDATE users SET
+          username = ?, email = ?, first_name = ?, last_name = ?, phone = ?
+      `;
+      let updateParams = [username, email, firstName, lastName, mobile || null];
+
+      // If password is provided, hash and update it
+      if (password && password.trim()) {
+        const hashedPassword = await bcrypt.hash(password, 12);
+        updateQuery += ', password = ?';
+        updateParams.push(hashedPassword);
+      }
+
+      updateQuery += ' WHERE id = ?';
+      updateParams.push(userId);
+
+      await connection.execute(updateQuery, updateParams);
+
+      // Return the updated user
+      return {
+        id: userId,
+        name,
+        mobile: mobile || '',
+        email,
+        username,
+        created_at: new Date().toISOString(), // This should ideally come from DB
+        is_active: true
+      };
+    } catch (error) {
+      console.error("Error updating corporate user:", error);
+      throw error;
+    }
+  }
+
+  async resetCorporateUserPassword(userId: number): Promise<string> {
+    try {
+      // Generate a temporary password
+      const tempPassword = 'temp' + Math.random().toString(36).substring(2, 8);
+
+      // Hash the temporary password
+      const hashedPassword = await bcrypt.hash(tempPassword, 12);
+
+      // Update the user's password
+      await connection.execute(
+        'UPDATE users SET password = ? WHERE id = ?',
+        [hashedPassword, userId]
+      );
+
+      console.log(`🔑 Password reset for user ${userId}, temp password: ${tempPassword}`);
+      return tempPassword;
+    } catch (error) {
+      console.error("Error resetting corporate user password:", error);
+      throw error;
+    }
+  }
+
   async deleteUser(userId: number): Promise<boolean> {
     try {
       // Soft delete by setting active = 0
@@ -249,6 +570,123 @@ export class MySQLStorage implements IMySQLStorage {
     } catch (error) {
       console.error("Error deleting user:", error);
       throw error;
+    }
+  }
+
+  async createDemoUsers(): Promise<void> {
+    try {
+      console.log("🔍 Checking for demo users...");
+
+      const demoUsersData = [
+        {
+          username: 'admin',
+          email: 'admin@apphub.com',
+          password: 'password',
+          firstName: 'System',
+          lastName: 'Administrator',
+          company: 'AppHub System',
+          phone: '+1-555-0001',
+          ipAddress: '127.0.0.1',
+          active: 1,
+          createdOn: Math.floor(Date.now() / 1000),
+          groupId: 0
+        },
+        {
+          username: 'corporate',
+          email: 'corporate@apphub.com',
+          password: 'password',
+          firstName: 'Corporate',
+          lastName: 'Manager',
+          company: 'AppHub Corporate',
+          phone: '+1-555-0002',
+          ipAddress: '127.0.0.1',
+          active: 1,
+          createdOn: Math.floor(Date.now() / 1000),
+          groupId: 0
+        },
+        {
+          username: 'head_office',
+          email: 'headoffice@apphub.com',
+          password: 'password',
+          firstName: 'Head Office',
+          lastName: 'Manager',
+          company: 'AppHub Head Office',
+          phone: '+1-555-0003',
+          ipAddress: '127.0.0.1',
+          active: 1,
+          createdOn: Math.floor(Date.now() / 1000),
+          groupId: 0
+        },
+        {
+          username: 'regional',
+          email: 'regional@apphub.com',
+          password: 'password',
+          firstName: 'Regional',
+          lastName: 'Manager',
+          company: 'AppHub Regional',
+          phone: '+1-555-0004',
+          ipAddress: '127.0.0.1',
+          active: 1,
+          createdOn: Math.floor(Date.now() / 1000),
+          groupId: 0
+        },
+        {
+          username: 'branch',
+          email: 'branch@apphub.com',
+          password: 'password',
+          firstName: 'Branch',
+          lastName: 'Manager',
+          company: 'AppHub Branch',
+          phone: '+1-555-0005',
+          ipAddress: '127.0.0.1',
+          active: 1,
+          createdOn: Math.floor(Date.now() / 1000),
+          groupId: 0
+        }
+      ];
+
+      for (const userData of demoUsersData) {
+        // Check if user already exists
+        const [existingUser] = await connection.execute(
+          'SELECT id FROM users WHERE username = ? OR email = ?',
+          [userData.username, userData.email]
+        );
+
+        if ((existingUser as any[]).length === 0) {
+          try {
+            // Hash password
+            const hashedPassword = await bcrypt.hash(userData.password, 12);
+
+            // Insert user using raw SQL to handle different table structures
+            await connection.execute(`
+              INSERT INTO users (
+                ip_address, username, password, email, first_name, last_name,
+                company, phone, created_on, active, group_id
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `, [
+              userData.ipAddress,
+              userData.username,
+              hashedPassword,
+              userData.email,
+              userData.firstName,
+              userData.lastName,
+              userData.company,
+              userData.phone,
+              userData.createdOn,
+              userData.active,
+              userData.groupId
+            ]);
+
+            console.log(`✅ Created demo user: ${userData.username}`);
+          } catch (error) {
+            console.error(`❌ Failed to create demo user ${userData.username}:`, error);
+          }
+        } else {
+          console.log(`ℹ️ Demo user ${userData.username} already exists`);
+        }
+      }
+    } catch (error) {
+      console.error("❌ Error creating demo users:", error);
     }
   }
 
@@ -310,6 +748,9 @@ export class MySQLStorage implements IMySQLStorage {
         }
         console.log('✅ Default groups created successfully');
       }
+
+      // Create demo users if they don't exist
+      await this.createDemoUsers();
 
       // Check if demo users exist and create group associations
       const demoUsers = ['admin', 'corporate', 'head_office', 'regional', 'branch'];
@@ -674,8 +1115,109 @@ export class MySQLStorage implements IMySQLStorage {
   }
 
   // Country Methods
+  async ensureCountryTableExists(): Promise<void> {
+    try {
+      // Check if table exists and has correct structure
+      const [tableInfo] = await connection.execute('DESCRIBE country_tbl');
+      console.log('🔍 Current country table structure:', tableInfo);
+
+      const columns = (tableInfo as any[]).map(col => col.Field);
+      console.log('🔍 Available columns:', columns);
+
+      const requiredColumns = ['id', 'continent_id', 'country', 'order_by', 'status', 'code', 'currency', 'country_flag', 'phone_code', 'nationality'];
+      const missingColumns = requiredColumns.filter(col => !columns.includes(col));
+
+      if (missingColumns.length > 0) {
+        console.log('⚠️ Country table missing required columns:', missingColumns);
+        console.log('🔨 Recreating country table with correct structure...');
+
+        // Drop existing table
+        await connection.execute('DROP TABLE IF EXISTS country_tbl');
+
+        // Create new table with correct structure
+        await connection.execute(`
+          CREATE TABLE country_tbl (
+            id int NOT NULL AUTO_INCREMENT,
+            continent_id int NOT NULL,
+            country varchar(100) NOT NULL,
+            order_by int DEFAULT 0,
+            status tinyint(1) DEFAULT 1,
+            code varchar(45) NOT NULL,
+            currency varchar(10) DEFAULT NULL,
+            country_flag varchar(255) DEFAULT NULL,
+            phone_code varchar(10) DEFAULT NULL,
+            nationality varchar(100) DEFAULT NULL,
+            created_at timestamp DEFAULT CURRENT_TIMESTAMP,
+            updated_at timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY code_UNIQUE (code),
+            KEY fk_country_continent_idx (continent_id),
+            CONSTRAINT fk_country_continent FOREIGN KEY (continent_id) REFERENCES continent_tbl (id)
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+        `);
+
+        // Insert default countries
+        console.log('🌱 Seeding country table with default data...');
+        await connection.execute(`
+          INSERT INTO country_tbl (continent_id, country, code, currency, country_flag, phone_code, nationality, order_by) VALUES
+          (1, 'India', 'IN', 'INR', '🇮🇳', '91', 'Indian', 1),
+          (1, 'China', 'CN', 'CNY', '🇨🇳', '86', 'Chinese', 2),
+          (1, 'Japan', 'JP', 'JPY', '🇯🇵', '81', 'Japanese', 3),
+          (1, 'South Korea', 'KR', 'KRW', '🇰🇷', '82', 'Korean', 4),
+          (1, 'Thailand', 'TH', 'THB', '🇹🇭', '66', 'Thai', 5)
+        `);
+
+        console.log('✅ Country table created and seeded with default countries');
+      }
+    } catch (error) {
+      if ((error as any).code === 'ER_NO_SUCH_TABLE') {
+        console.log('🔨 Country table does not exist, creating...');
+
+        // Create new table
+        await connection.execute(`
+          CREATE TABLE country_tbl (
+            id int NOT NULL AUTO_INCREMENT,
+            continent_id int NOT NULL,
+            country varchar(100) NOT NULL,
+            order_by int DEFAULT 0,
+            status tinyint(1) DEFAULT 1,
+            code varchar(45) NOT NULL,
+            currency varchar(10) DEFAULT NULL,
+            country_flag varchar(255) DEFAULT NULL,
+            phone_code varchar(10) DEFAULT NULL,
+            nationality varchar(100) DEFAULT NULL,
+            created_at timestamp DEFAULT CURRENT_TIMESTAMP,
+            updated_at timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY code_UNIQUE (code),
+            KEY fk_country_continent_idx (continent_id),
+            CONSTRAINT fk_country_continent FOREIGN KEY (continent_id) REFERENCES continent_tbl (id)
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+        `);
+
+        // Insert default countries
+        console.log('🌱 Seeding country table with default data...');
+        await connection.execute(`
+          INSERT INTO country_tbl (continent_id, country, code, currency, country_flag, phone_code, nationality, order_by) VALUES
+          (1, 'India', 'IN', 'INR', '🇮🇳', '91', 'Indian', 1),
+          (1, 'China', 'CN', 'CNY', '🇨🇳', '86', 'Chinese', 2),
+          (1, 'Japan', 'JP', 'JPY', '🇯🇵', '81', 'Japanese', 3),
+          (1, 'South Korea', 'KR', 'KRW', '🇰🇷', '82', 'Korean', 4),
+          (1, 'Thailand', 'TH', 'THB', '🇹🇭', '66', 'Thai', 5)
+        `);
+
+        console.log('✅ Country table created and seeded with default countries');
+      } else {
+        console.error('Error ensuring country table exists:', error);
+        throw error;
+      }
+    }
+  }
+
   async getAllCountries(): Promise<any[]> {
     try {
+      await this.ensureCountryTableExists();
+
       const query = `
         SELECT
           c.*,
@@ -1187,6 +1729,387 @@ export class MySQLStorage implements IMySQLStorage {
       return (result as any).affectedRows > 0;
     } catch (error) {
       console.error("Error deleting language:", error);
+      throw error;
+    }
+  }
+
+  // Education Management Methods
+  async getAllEducation(): Promise<any[]> {
+    try {
+      console.log("🎓 MySQL: Executing getAllEducation query");
+      await this.ensureEducationTableExists();
+
+      const [rows] = await connection.execute('SELECT * FROM education ORDER BY level');
+      console.log("🎓 MySQL: Query result:", rows);
+
+      // Map database fields to frontend expected format
+      const mappedRows = (rows as any[]).map(row => ({
+        id: row.id,
+        level: row.level,
+        isActive: row.is_active || row.isActive,
+        users: row.users || 0,
+        createdAt: row.created_at || row.createdAt,
+        updatedAt: row.updated_at || row.updatedAt
+      }));
+
+      return mappedRows;
+    } catch (error) {
+      console.error("🎓 MySQL: Error fetching education:", error);
+      throw error;
+    }
+  }
+
+  async ensureEducationTableExists(): Promise<void> {
+    try {
+      console.log("🔨 Checking education table structure...");
+
+      // First check what columns exist in the education table
+      try {
+        const [tableInfo] = await connection.execute('DESCRIBE education');
+        console.log("🔍 Current education table structure:", tableInfo);
+
+        const columns = (tableInfo as any[]).map(col => col.Field);
+        console.log("🔍 Available columns:", columns);
+
+        // If table doesn't have the right structure, recreate it
+        if (!columns.includes('level')) {
+          console.log("⚠️ Education table missing 'level' column, recreating...");
+          await connection.execute('DROP TABLE IF EXISTS education');
+
+          await connection.execute(`
+            CREATE TABLE \`education\` (
+              id INT AUTO_INCREMENT PRIMARY KEY,
+              level VARCHAR(100) NOT NULL,
+              is_active TINYINT(1) DEFAULT 1,
+              users INT DEFAULT 0,
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            )
+          `);
+          console.log("✅ Education table recreated with correct structure");
+        }
+      } catch (error: any) {
+        if (error.code === 'ER_NO_SUCH_TABLE') {
+          console.log("🔨 Creating new education table...");
+          await connection.execute(`
+            CREATE TABLE \`education\` (
+              id INT AUTO_INCREMENT PRIMARY KEY,
+              level VARCHAR(100) NOT NULL,
+              is_active TINYINT(1) DEFAULT 1,
+              users INT DEFAULT 0,
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            )
+          `);
+          console.log("✅ Education table created");
+        } else {
+          console.error("Error checking education table:", error);
+          throw error;
+        }
+      }
+
+      // Insert default education levels if table is empty
+      const [rows] = await connection.execute('SELECT COUNT(*) as count FROM education');
+      const count = (rows as any[])[0].count;
+
+      if (count === 0) {
+        console.log("🔨 Inserting default education levels...");
+        const defaultEducation = [
+          { level: 'High School', is_active: 1, users: 2450 },
+          { level: 'Bachelor\'s Degree', is_active: 1, users: 4230 },
+          { level: 'Master\'s Degree', is_active: 1, users: 2100 },
+          { level: 'PhD/Doctorate', is_active: 1, users: 890 },
+          { level: 'Professional Certificate', is_active: 1, users: 1560 },
+        ];
+
+        for (const edu of defaultEducation) {
+          await connection.execute(
+            'INSERT INTO education (level, is_active, users) VALUES (?, ?, ?)',
+            [edu.level, edu.is_active, edu.users]
+          );
+        }
+        console.log("✅ Default education levels inserted");
+      }
+    } catch (error) {
+      console.error("❌ Error ensuring education table exists:", error);
+      throw error;
+    }
+  }
+
+  async createEducation(educationData: any): Promise<any> {
+    try {
+      await this.ensureEducationTableExists();
+      const [result] = await connection.execute(
+        'INSERT INTO education (level, is_active, users) VALUES (?, ?, ?)',
+        [educationData.level, educationData.isActive || 1, educationData.users || 0]
+      );
+
+      const [newEducation] = await connection.execute('SELECT * FROM education WHERE id = ?', [(result as any).insertId]);
+      const row = (newEducation as any[])[0];
+
+      return {
+        id: row.id,
+        level: row.level,
+        isActive: row.is_active,
+        users: row.users,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      };
+    } catch (error) {
+      console.error("Error creating education:", error);
+      throw error;
+    }
+  }
+
+  async updateEducation(id: number, educationData: any): Promise<any | null> {
+    try {
+      await this.ensureEducationTableExists();
+      const updateFields = [];
+      const updateValues = [];
+
+      if (educationData.level !== undefined) {
+        updateFields.push('level = ?');
+        updateValues.push(educationData.level);
+      }
+      if (educationData.isActive !== undefined) {
+        updateFields.push('is_active = ?');
+        updateValues.push(educationData.isActive);
+      }
+      if (educationData.users !== undefined) {
+        updateFields.push('users = ?');
+        updateValues.push(educationData.users);
+      }
+
+      if (updateFields.length === 0) {
+        const [education] = await connection.execute('SELECT * FROM education WHERE id = ?', [id]);
+        return (education as any[])[0] || null;
+      }
+
+      updateValues.push(id);
+      await connection.execute(
+        `UPDATE education SET ${updateFields.join(', ')} WHERE id = ?`,
+        updateValues
+      );
+
+      const [updatedEducation] = await connection.execute('SELECT * FROM education WHERE id = ?', [id]);
+      const row = (updatedEducation as any[])[0];
+
+      return row ? {
+        id: row.id,
+        level: row.level,
+        isActive: row.is_active,
+        users: row.users,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      } : null;
+    } catch (error) {
+      console.error("Error updating education:", error);
+      throw error;
+    }
+  }
+
+  async deleteEducation(id: number): Promise<boolean> {
+    try {
+      await this.ensureEducationTableExists();
+      const [result] = await connection.execute('DELETE FROM education WHERE id = ?', [id]);
+      return (result as any).affectedRows > 0;
+    } catch (error) {
+      console.error("Error deleting education:", error);
+      throw error;
+    }
+  }
+
+  // Profession Management Methods
+  async getAllProfessions(): Promise<any[]> {
+    try {
+      console.log("💼 MySQL: Executing getAllProfessions query");
+      await this.ensureProfessionTableExists();
+
+      const [rows] = await connection.execute('SELECT * FROM profession ORDER BY name');
+      console.log("💼 MySQL: Query result:", rows);
+
+      // Map database fields to frontend expected format
+      const mappedRows = (rows as any[]).map(row => ({
+        id: row.id,
+        name: row.name,
+        category: row.category,
+        isActive: row.is_active || row.isActive,
+        users: row.users || 0,
+        createdAt: row.created_at || row.createdAt,
+        updatedAt: row.updated_at || row.updatedAt
+      }));
+
+      return mappedRows;
+    } catch (error) {
+      console.error("💼 MySQL: Error fetching professions:", error);
+      throw error;
+    }
+  }
+
+  async ensureProfessionTableExists(): Promise<void> {
+    try {
+      console.log("🔨 Checking profession table structure...");
+
+      // First check what columns exist in the profession table
+      try {
+        const [tableInfo] = await connection.execute('DESCRIBE profession');
+        console.log("🔍 Current profession table structure:", tableInfo);
+
+        const columns = (tableInfo as any[]).map(col => col.Field);
+        console.log("🔍 Available columns:", columns);
+
+        // If table doesn't have the right structure, recreate it
+        if (!columns.includes('name') || !columns.includes('category')) {
+          console.log("⚠️ Profession table missing required columns, recreating...");
+          await connection.execute('DROP TABLE IF EXISTS profession');
+
+          await connection.execute(`
+            CREATE TABLE \`profession\` (
+              id INT AUTO_INCREMENT PRIMARY KEY,
+              name VARCHAR(100) NOT NULL,
+              category VARCHAR(50) NOT NULL,
+              is_active TINYINT(1) DEFAULT 1,
+              users INT DEFAULT 0,
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            )
+          `);
+          console.log("✅ Profession table recreated with correct structure");
+        }
+      } catch (error: any) {
+        if (error.code === 'ER_NO_SUCH_TABLE') {
+          console.log("🔨 Creating new profession table...");
+          await connection.execute(`
+            CREATE TABLE \`profession\` (
+              id INT AUTO_INCREMENT PRIMARY KEY,
+              name VARCHAR(100) NOT NULL,
+              category VARCHAR(50) NOT NULL,
+              is_active TINYINT(1) DEFAULT 1,
+              users INT DEFAULT 0,
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            )
+          `);
+          console.log("✅ Profession table created");
+        } else {
+          console.error("Error checking profession table:", error);
+          throw error;
+        }
+      }
+
+      // Insert default professions if table is empty
+      const [rows] = await connection.execute('SELECT COUNT(*) as count FROM profession');
+      const count = (rows as any[])[0].count;
+
+      if (count === 0) {
+        console.log("🔨 Inserting default professions...");
+        const defaultProfessions = [
+          { name: 'Software Engineer', category: 'Technology', is_active: 1, users: 1850 },
+          { name: 'Marketing Manager', category: 'Marketing', is_active: 1, users: 920 },
+          { name: 'Data Scientist', category: 'Technology', is_active: 1, users: 650 },
+          { name: 'Product Manager', category: 'Management', is_active: 1, users: 480 },
+          { name: 'Sales Representative', category: 'Sales', is_active: 1, users: 1200 },
+        ];
+
+        for (const prof of defaultProfessions) {
+          await connection.execute(
+            'INSERT INTO profession (name, category, is_active, users) VALUES (?, ?, ?, ?)',
+            [prof.name, prof.category, prof.is_active, prof.users]
+          );
+        }
+        console.log("✅ Default professions inserted");
+      }
+    } catch (error) {
+      console.error("❌ Error ensuring profession table exists:", error);
+      throw error;
+    }
+  }
+
+  async createProfession(professionData: any): Promise<any> {
+    try {
+      await this.ensureProfessionTableExists();
+      const [result] = await connection.execute(
+        'INSERT INTO profession (name, category, is_active, users) VALUES (?, ?, ?, ?)',
+        [professionData.name, professionData.category, professionData.isActive || 1, professionData.users || 0]
+      );
+
+      const [newProfession] = await connection.execute('SELECT * FROM profession WHERE id = ?', [(result as any).insertId]);
+      const row = (newProfession as any[])[0];
+
+      return {
+        id: row.id,
+        name: row.name,
+        category: row.category,
+        isActive: row.is_active,
+        users: row.users,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      };
+    } catch (error) {
+      console.error("Error creating profession:", error);
+      throw error;
+    }
+  }
+
+  async updateProfession(id: number, professionData: any): Promise<any | null> {
+    try {
+      await this.ensureProfessionTableExists();
+      const updateFields = [];
+      const updateValues = [];
+
+      if (professionData.name !== undefined) {
+        updateFields.push('name = ?');
+        updateValues.push(professionData.name);
+      }
+      if (professionData.category !== undefined) {
+        updateFields.push('category = ?');
+        updateValues.push(professionData.category);
+      }
+      if (professionData.isActive !== undefined) {
+        updateFields.push('is_active = ?');
+        updateValues.push(professionData.isActive);
+      }
+      if (professionData.users !== undefined) {
+        updateFields.push('users = ?');
+        updateValues.push(professionData.users);
+      }
+
+      if (updateFields.length === 0) {
+        const [profession] = await connection.execute('SELECT * FROM profession WHERE id = ?', [id]);
+        return (profession as any[])[0] || null;
+      }
+
+      updateValues.push(id);
+      await connection.execute(
+        `UPDATE profession SET ${updateFields.join(', ')} WHERE id = ?`,
+        updateValues
+      );
+
+      const [updatedProfession] = await connection.execute('SELECT * FROM profession WHERE id = ?', [id]);
+      const row = (updatedProfession as any[])[0];
+
+      return row ? {
+        id: row.id,
+        name: row.name,
+        category: row.category,
+        isActive: row.is_active,
+        users: row.users,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      } : null;
+    } catch (error) {
+      console.error("Error updating profession:", error);
+      throw error;
+    }
+  }
+
+  async deleteProfession(id: number): Promise<boolean> {
+    try {
+      await this.ensureProfessionTableExists();
+      const [result] = await connection.execute('DELETE FROM profession WHERE id = ?', [id]);
+      return (result as any).affectedRows > 0;
+    } catch (error) {
+      console.error("Error deleting profession:", error);
       throw error;
     }
   }

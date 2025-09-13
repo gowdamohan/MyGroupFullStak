@@ -1,3 +1,4 @@
+import React from "react";
 import type { AppItem } from "@/lib/types";
 
 const defaultApps: AppItem[] = [

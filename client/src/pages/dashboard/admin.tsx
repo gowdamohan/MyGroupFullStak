@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import StatsCard from "@/components/dashboard/StatsCard";
@@ -68,7 +68,7 @@ export default function AdminDashboard() {
     { icon: 'bi-briefcase', label: 'Profession', path: '/dashboard/admin/profession' },
     { icon: 'bi-gear', label: 'Admin Settings', path: '/dashboard/admin/admin-settings' },
     { icon: 'bi-box-arrow-in-right', label: 'Corporate Login', path: '/dashboard/admin/corporate-login' },
-    { icon: 'bi-box-arrow-right', label: 'Logout', path: '/logout' },
+    { icon: 'bi-box-arrow-right', label: 'Logout' },
   ];
 
   return (

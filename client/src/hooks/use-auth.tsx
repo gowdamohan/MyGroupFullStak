@@ -1,5 +1,6 @@
 import React, { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useLocation } from 'wouter';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 
@@ -24,11 +25,33 @@ interface AuthContextType {
   getDashboardRoute: () => string;
 }
 
+// Helper function to get redirect path based on user role
+function getRoleBasedRedirectPath(user: User): string {
+  const role = user.role || user.userRole || 'user';
+
+  switch (role.toLowerCase()) {
+    case 'admin':
+      return '/dashboard/admin';
+    case 'corporate':
+      return '/dashboard/corporate';
+    case 'head_office':
+    case 'head-office':
+      return '/dashboard/head-office';
+    case 'regional':
+      return '/dashboard/regional';
+    case 'branch':
+      return '/dashboard/branch';
+    default:
+      return '/dashboard'; // Default dashboard
+  }
+}
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(localStorage.getItem('authToken'));
   const [user, setUser] = useState<User | null>(null);
+  const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -37,11 +60,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryKey: ['auth', 'me'],
     queryFn: async () => {
       if (!token) return null;
-      
+
       try {
         const response = await apiRequest('/api/auth/me');
         return await response.json();
       } catch (error) {
+        console.log('Auth check failed:', error);
         // If token is invalid, clear it
         localStorage.removeItem('authToken');
         setToken(null);
@@ -50,6 +74,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     enabled: !!token,
     retry: false,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
   });
 
   // Update user state when auth data changes
@@ -101,7 +127,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         description: `Welcome back, ${data.user?.firstName || data.user?.username}!`,
       });
 
-
+      // Role-based redirection
+      if (data.user) {
+        const redirectPath = getRoleBasedRedirectPath(data.user);
+        console.log(`🔄 Redirecting ${data.user.username} (${data.user.role || data.user.userRole}) to ${redirectPath}`);
+        setLocation(redirectPath);
+      }
     },
     onError: (error: any) => {
       toast({
@@ -124,14 +155,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem('authToken');
       setToken(null);
       setUser(null);
-      
+
       // Clear all cached queries
       queryClient.clear();
-      
+
       toast({
         title: "Logged Out",
         description: "You have been successfully logged out.",
       });
+
+      // Redirect to login page
+      setLocation('/auth/login');
     }
   };
 
@@ -163,7 +197,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value: AuthContextType = {
     user,
     isAuthenticated: !!user && !!token,
-    isLoading: isLoading || loginMutation.isPending,
+    isLoading: (!!token && isLoading) || loginMutation.isPending,
     isLoginLoading: loginMutation.isPending,
     login,
     logout,

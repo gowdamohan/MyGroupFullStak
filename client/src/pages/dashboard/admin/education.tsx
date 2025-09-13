@@ -1,3 +1,4 @@
+import React from "react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { getActiveMenuItem } from "@/config/admin_menu";
 import EducationManagement from "@/components/content/EducationManagement";

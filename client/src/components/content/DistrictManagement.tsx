@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -330,7 +330,7 @@ export default function DistrictManagement({ className = "" }: DistrictManagemen
               <div className="grid gap-2">
                 <Label htmlFor="country">Country *</Label>
                 <Select
-                  value={selectedCountryId.toString()}
+                  value={selectedCountryId ? selectedCountryId.toString() : ""}
                   onValueChange={handleCountryChange}
                 >
                   <SelectTrigger>
@@ -349,7 +349,7 @@ export default function DistrictManagement({ className = "" }: DistrictManagemen
               <div className="grid gap-2">
                 <Label htmlFor="state">State *</Label>
                 <Select
-                  value={districtForm.stateId.toString()}
+                  value={districtForm.stateId ? districtForm.stateId.toString() : ""}
                   onValueChange={(value) => setDistrictForm(prev => ({ ...prev, stateId: parseInt(value) }))}
                   disabled={!selectedCountryId}
                 >
@@ -405,7 +405,7 @@ export default function DistrictManagement({ className = "" }: DistrictManagemen
               <div className="grid gap-2">
                 <Label htmlFor="status">Status</Label>
                 <Select
-                  value={districtForm.status.toString()}
+                  value={districtForm.status ? districtForm.status.toString() : "1"}
                   onValueChange={(value) => setDistrictForm(prev => ({ ...prev, status: parseInt(value) }))}
                 >
                   <SelectTrigger>

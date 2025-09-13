@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -37,7 +37,7 @@ export default function CountryManagement({ className = "" }: CountryManagementP
   const [countryForm, setCountryForm] = useState<CountryInput>({
     continentId: 0,
     country: '',
-    order: 0,
+    orderBy: 0,
     status: 1,
     code: '',
     currency: '',
@@ -94,7 +94,7 @@ export default function CountryManagement({ className = "" }: CountryManagementP
       });
       setShowCreateModal(false);
       resetForm();
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/countries'] });
+      queryClient.invalidateQueries({ queryKey: ['countries-list'] });
     },
     onError: (error: any) => {
       toast({
@@ -121,7 +121,7 @@ export default function CountryManagement({ className = "" }: CountryManagementP
       });
       setEditingCountry(null);
       resetForm();
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/countries'] });
+      queryClient.invalidateQueries({ queryKey: ['countries-list'] });
     },
     onError: (error: any) => {
       toast({
@@ -144,7 +144,7 @@ export default function CountryManagement({ className = "" }: CountryManagementP
         title: "Success",
         description: "Country deleted successfully",
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/countries'] });
+      queryClient.invalidateQueries({ queryKey: ['countries-list'] });
     },
     onError: (error: any) => {
       toast({
@@ -159,7 +159,7 @@ export default function CountryManagement({ className = "" }: CountryManagementP
     setCountryForm({
       continentId: 0,
       country: '',
-      order: 0,
+      orderBy: 0,
       status: 1,
       code: '',
       currency: '',
@@ -178,14 +178,14 @@ export default function CountryManagement({ className = "" }: CountryManagementP
   const handleEdit = (country: any) => {
     setEditingCountry(country);
     setCountryForm({
-      continentId: country.continentId || 0,
+      continentId: country.continent_id || 0,
       country: country.country || '',
-      order: country.order || 0,
+      orderBy: country.order_by || 0,
       status: country.status || 1,
       code: country.code || '',
       currency: country.currency || '',
-      countryFlag: country.countryFlag || '',
-      phoneCode: country.phoneCode || '',
+      countryFlag: country.country_flag || '',
+      phoneCode: country.phone_code || '',
       nationality: country.nationality || '',
     });
     setShowCreateModal(true);
@@ -389,12 +389,12 @@ export default function CountryManagement({ className = "" }: CountryManagementP
                 </div>
                 
                 <div className="grid gap-2">
-                  <Label htmlFor="order">Order</Label>
+                  <Label htmlFor="orderBy">Order</Label>
                   <Input
-                    id="order"
+                    id="orderBy"
                     type="number"
-                    value={countryForm.order}
-                    onChange={(e) => setCountryForm(prev => ({ ...prev, order: parseInt(e.target.value) || 0 }))}
+                    value={countryForm.orderBy}
+                    onChange={(e) => setCountryForm(prev => ({ ...prev, orderBy: parseInt(e.target.value) || 0 }))}
                     placeholder="0"
                   />
                 </div>

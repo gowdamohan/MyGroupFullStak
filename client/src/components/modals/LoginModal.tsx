@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import type { LoginPhone, VerifyOtp } from "@shared/schema";
 

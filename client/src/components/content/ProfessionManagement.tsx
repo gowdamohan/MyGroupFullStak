@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -116,6 +116,7 @@ export default function ProfessionManagement({ className = "" }: ProfessionManag
         description: "Profession updated successfully",
       });
       queryClient.invalidateQueries({ queryKey: ['professions-list'] });
+      setShowCreateModal(false);
       setEditingProfession(null);
       resetForm();
     },
@@ -171,19 +172,42 @@ export default function ProfessionManagement({ className = "" }: ProfessionManag
   };
 
   const handleEdit = (profession: Profession) => {
+    console.log('🔍 Editing profession:', profession);
+
+    if (!profession) {
+      console.error('❌ Profession object is undefined');
+      toast({
+        title: "Error",
+        description: "Invalid profession data",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setEditingProfession(profession);
     setProfessionForm({
-      name: profession.name,
-      category: profession.category,
-      isActive: profession.isActive,
+      name: profession.name || '',
+      category: profession.category || '',
+      isActive: profession.isActive !== undefined ? profession.isActive : true,
     });
     setShowCreateModal(true);
   };
 
   const handleDelete = (profession: Profession) => {
+    if (!profession) {
+      console.error('❌ Profession object is undefined');
+      return;
+    }
+
     if (confirm(`Are you sure you want to delete "${profession.name}"?`)) {
       deleteProfessionMutation.mutate(profession.id);
     }
+  };
+
+  const handleCloseModal = () => {
+    setShowCreateModal(false);
+    setEditingProfession(null);
+    resetForm();
   };
 
   const columns: Column<Profession>[] = [
@@ -201,7 +225,7 @@ export default function ProfessionManagement({ className = "" }: ProfessionManag
       key: 'category',
       header: 'Category',
       sortable: true,
-      render: (profession) => (
+      render: (value, profession) => (
         <Badge variant="outline">{profession.category}</Badge>
       ),
     },
@@ -209,12 +233,12 @@ export default function ProfessionManagement({ className = "" }: ProfessionManag
       key: 'users',
       header: 'Users',
       sortable: true,
-      render: (profession) => (profession.users || 0).toLocaleString(),
+      render: (value, profession) => (profession.users || 0).toLocaleString(),
     },
     {
       key: 'isActive',
       header: 'Status',
-      render: (profession) => (
+      render: (value, profession) => (
         <Badge variant={profession.isActive ? 'default' : 'secondary'}>
           {profession.isActive ? 'Active' : 'Inactive'}
         </Badge>
@@ -223,7 +247,7 @@ export default function ProfessionManagement({ className = "" }: ProfessionManag
     {
       key: 'actions',
       header: 'Actions',
-      render: (profession) => (
+      render: (value, profession) => (
         <div className="flex gap-2">
           <Button
             variant="outline"
@@ -252,7 +276,11 @@ export default function ProfessionManagement({ className = "" }: ProfessionManag
           <h2 className="text-2xl font-bold">Profession Management</h2>
           <p className="text-gray-600">Manage professions and career categories</p>
         </div>
-        <Button onClick={() => setShowCreateModal(true)}>
+        <Button onClick={() => {
+          setEditingProfession(null);
+          resetForm();
+          setShowCreateModal(true);
+        }}>
           Add Profession
         </Button>
       </div>
@@ -265,7 +293,7 @@ export default function ProfessionManagement({ className = "" }: ProfessionManag
         searchPlaceholder="Search professions..."
       />
 
-      <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
+      <Dialog open={showCreateModal} onOpenChange={handleCloseModal}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>

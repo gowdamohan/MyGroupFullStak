@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -46,7 +46,9 @@ export default function LanguageManagement({ className = "" }: LanguageManagemen
     queryKey: ['languages-list'],
     queryFn: async () => {
       const response = await apiRequest('/api/admin/languages');
-      return response.json();
+      const data = await response.json();
+      console.log('🔍 Languages data received:', data);
+      return data;
     }
   });
 
@@ -94,6 +96,7 @@ export default function LanguageManagement({ className = "" }: LanguageManagemen
         description: "Language updated successfully",
       });
       queryClient.invalidateQueries({ queryKey: ['languages-list'] });
+      setShowCreateModal(false);
       setEditingLanguage(null);
       resetForm();
     },
@@ -150,20 +153,43 @@ export default function LanguageManagement({ className = "" }: LanguageManagemen
   };
 
   const handleEdit = (language: Language) => {
+    console.log('🔍 Editing language:', language);
+
+    if (!language) {
+      console.error('❌ Language object is undefined');
+      toast({
+        title: "Error",
+        description: "Invalid language data",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setEditingLanguage(language);
     setLanguageForm({
-      name: language.name,
-      code: language.code,
-      isActive: language.isActive,
-      speakers: language.speakers,
+      name: language.name || '',
+      code: language.code || '',
+      isActive: language.isActive !== undefined ? language.isActive : true,
+      speakers: language.speakers || '',
     });
     setShowCreateModal(true);
   };
 
   const handleDelete = (language: Language) => {
+    if (!language) {
+      console.error('❌ Language object is undefined');
+      return;
+    }
+
     if (confirm(`Are you sure you want to delete "${language.name}"?`)) {
       deleteLanguageMutation.mutate(language.id);
     }
+  };
+
+  const handleCloseModal = () => {
+    setShowCreateModal(false);
+    setEditingLanguage(null);
+    resetForm();
   };
 
   const columns: Column<Language>[] = [
@@ -190,7 +216,7 @@ export default function LanguageManagement({ className = "" }: LanguageManagemen
     {
       key: 'isActive',
       header: 'Status',
-      render: (language) => (
+      render: (value, language) => (
         <Badge variant={language.isActive ? 'default' : 'secondary'}>
           {language.isActive ? 'Active' : 'Inactive'}
         </Badge>
@@ -199,25 +225,34 @@ export default function LanguageManagement({ className = "" }: LanguageManagemen
     {
       key: 'actions',
       header: 'Actions',
-      render: (language) => (
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleEdit(language)}
-          >
-            Edit
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleDelete(language)}
-            className="text-red-600 hover:text-red-700"
-          >
-            Delete
-          </Button>
-        </div>
-      ),
+      render: (value, language) => {
+        console.log('🔍 Rendering actions for language:', language);
+        return (
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                console.log('🔍 Edit button clicked for language:', language);
+                handleEdit(language);
+              }}
+            >
+              Edit
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                console.log('🔍 Delete button clicked for language:', language);
+                handleDelete(language);
+              }}
+              className="text-red-600 hover:text-red-700"
+            >
+              Delete
+            </Button>
+          </div>
+        );
+      },
     },
   ];
 
@@ -228,7 +263,11 @@ export default function LanguageManagement({ className = "" }: LanguageManagemen
           <h2 className="text-2xl font-bold">Language Management</h2>
           <p className="text-gray-600">Manage system languages and their settings</p>
         </div>
-        <Button onClick={() => setShowCreateModal(true)}>
+        <Button onClick={() => {
+          setEditingLanguage(null);
+          resetForm();
+          setShowCreateModal(true);
+        }}>
           Add Language
         </Button>
       </div>
@@ -241,7 +280,18 @@ export default function LanguageManagement({ className = "" }: LanguageManagemen
         searchPlaceholder="Search languages..."
       />
 
-      <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
+      {/* Debug info */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="mt-4 p-4 bg-gray-100 rounded">
+          <h3 className="font-bold">Debug Info:</h3>
+          <p>Languages count: {languagesQuery.data?.length || 0}</p>
+          <pre className="text-xs mt-2 overflow-auto max-h-32">
+            {JSON.stringify(languagesQuery.data, null, 2)}
+          </pre>
+        </div>
+      )}
+
+      <Dialog open={showCreateModal} onOpenChange={handleCloseModal}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>

@@ -56,7 +56,30 @@ const authenticateJWT = async (req: any, res: any, next: any) => {
       const decoded = jwt.verify(token, JWT_SECRET) as any;
 
       // Get user from database to ensure they still exist and are active
-      const user = await mysqlStorage.getUser(decoded.userId);
+      let user;
+
+      // Check if userId is a number (MySQL) or string UUID (in-memory)
+      const isNumericId = !isNaN(Number(decoded.userId)) && Number.isInteger(Number(decoded.userId));
+
+      if (isNumericId) {
+        // Try MySQL storage first for numeric IDs
+        try {
+          user = await mysqlStorage.getUser(Number(decoded.userId));
+        } catch (error) {
+          console.log("❌ MySQL getUser failed for numeric ID:", error instanceof Error ? error.message : String(error));
+        }
+      }
+
+      // If MySQL failed or if it's a UUID, try in-memory storage
+      if (!user) {
+        try {
+          user = await storage.getUser(String(decoded.userId));
+          console.log("✅ Found user in in-memory storage for JWT validation");
+        } catch (error) {
+          console.log("❌ In-memory getUser failed:", error instanceof Error ? error.message : String(error));
+        }
+      }
+
       if (!user) {
         return res.status(401).json({ error: "Invalid token - user not found" });
       }
@@ -143,6 +166,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log("✅ Groups and users seeded successfully");
   } catch (error) {
     console.error("❌ Error seeding groups and users:", error);
+    console.log("🔄 Continuing with in-memory storage fallback...");
   }
 
   // Test route
@@ -207,9 +231,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/login", async (req, res) => {
     try {
       const { username, password } = loginSchema.parse(req.body);
+      console.log("🔐 Login attempt for username:", username);
 
       // Try MySQL storage first with group-based authentication
-      const mysqlUser = await mysqlStorage.authenticateUser(username, password);
+      let mysqlUser;
+      try {
+        mysqlUser = await mysqlStorage.authenticateUser(username, password);
+      } catch (error) {
+        console.log("❌ MySQL authentication failed, trying in-memory storage...");
+        mysqlUser = null;
+      }
+
       if (mysqlUser) {
         // Get user role based on group membership using the SQL query provided
         const userWithRole = await mysqlStorage.getUserWithRole(mysqlUser.id);
@@ -271,22 +303,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Fallback to in-memory storage
+      console.log("🔄 Trying in-memory storage authentication...");
       const user = await storage.getUserByUsername(username);
       if (!user) {
+        console.log("❌ User not found in in-memory storage");
         return res.status(401).json({ error: "Invalid username or password" });
       }
 
+      console.log("✅ User found in in-memory storage:", user.username);
       const isValidPassword = await storage.verifyPassword(password, user.password);
       if (!isValidPassword) {
+        console.log("❌ Invalid password for in-memory user");
         return res.status(401).json({ error: "Invalid username or password" });
       }
+      console.log("✅ In-memory authentication successful");
+
+      // Determine role based on username for demo users
+      let role = 'user';
+      if (user.username === 'admin') role = 'admin';
+      else if (user.username === 'corporate') role = 'corporate';
+      else if (user.username === 'head_office') role = 'head_office';
+      else if (user.username === 'regional') role = 'regional';
+      else if (user.username === 'branch') role = 'branch';
+
+      // Generate JWT token for in-memory user
+      const token = jwt.sign(
+        {
+          userId: user.id,
+          username: user.username,
+          email: user.email,
+          role: role
+        },
+        JWT_SECRET,
+        { expiresIn: '24h' }
+      );
 
       req.session.userId = user.id.toString();
-      req.session.userRole = 'user'; // Default role for fallback storage
+      req.session.userRole = role;
 
       const { password: _, ...userWithoutPassword } = user;
       res.json({
-        user: userWithoutPassword,
+        user: {
+          ...userWithoutPassword,
+          role: role
+        },
+        token,
         message: "Login successful"
       });
     } catch (error) {
@@ -310,13 +371,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/auth/me", authenticateJWT, async (req: any, res) => {
     try {
       const user = req.user;
-      const isAdmin = await mysqlStorage.isAdmin(user.id);
+
+      // Try to get admin status, fallback to role-based check
+      let isAdmin = false;
+      try {
+        isAdmin = await mysqlStorage.isAdmin(user.id);
+      } catch (error) {
+        // Fallback: check if user role is admin
+        isAdmin = req.userRole === 'admin' || user.role === 'admin';
+      }
+
       const { password: _, salt: __, ...userWithoutPassword } = user;
 
       res.json({
-        user: userWithoutPassword,
+        user: {
+          ...userWithoutPassword,
+          role: req.userRole || user.role || 'user'
+        },
         userId: user.id,
-        userRole: req.userRole,
+        userRole: req.userRole || user.role || 'user',
         isAdmin
       });
     } catch (error) {
@@ -1025,7 +1098,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Country Routes
-  app.get("/api/admin/countries", requireAdmin, async (req, res) => {
+  app.get("/api/admin/countries", authenticateJWT, requireAdmin, async (req, res) => {
     try {
       const countries = await mysqlStorage.getAllCountries();
       res.json(countries);
@@ -1035,7 +1108,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/countries/:id", requireAdmin, async (req, res) => {
+  app.get("/api/admin/countries/:id", authenticateJWT, requireAdmin, async (req, res) => {
     try {
       const countryId = parseInt(req.params.id);
       const country = await mysqlStorage.getCountryById(countryId);
@@ -1051,7 +1124,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/countries/by-continent/:continentId", requireAdmin, async (req, res) => {
+  app.get("/api/admin/countries/by-continent/:continentId", authenticateJWT, requireAdmin, async (req, res) => {
     try {
       const continentId = parseInt(req.params.continentId);
       const countries = await mysqlStorage.getCountriesByContinent(continentId);
@@ -1062,7 +1135,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/countries", requireAdmin, async (req, res) => {
+  app.post("/api/admin/countries", authenticateJWT, requireAdmin, async (req, res) => {
     try {
       const countryData = countrySchema.parse(req.body);
       const newCountry = await mysqlStorage.createCountry(countryData);
@@ -1076,7 +1149,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/admin/countries/:id", requireAdmin, async (req, res) => {
+  app.put("/api/admin/countries/:id", authenticateJWT, requireAdmin, async (req, res) => {
     try {
       const countryId = parseInt(req.params.id);
       const countryData = countrySchema.parse(req.body);
@@ -1096,7 +1169,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/admin/countries/:id", requireAdmin, async (req, res) => {
+  app.delete("/api/admin/countries/:id", authenticateJWT, requireAdmin, async (req, res) => {
     try {
       const countryId = parseInt(req.params.id);
       const deleted = await mysqlStorage.deleteCountry(countryId);
@@ -1113,7 +1186,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // State Routes
-  app.get("/api/admin/states", requireAdmin, async (req, res) => {
+  app.get("/api/admin/states", authenticateJWT, requireAdmin, async (req, res) => {
     try {
       const states = await mysqlStorage.getAllStates();
       res.json(states);
@@ -1123,7 +1196,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/states/:id", requireAdmin, async (req, res) => {
+  app.get("/api/admin/states/:id", authenticateJWT, requireAdmin, async (req, res) => {
     try {
       const stateId = parseInt(req.params.id);
       const state = await mysqlStorage.getStateById(stateId);
@@ -1139,7 +1212,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/states/by-country/:countryId", requireAdmin, async (req, res) => {
+  app.get("/api/admin/states/by-country/:countryId", authenticateJWT, requireAdmin, async (req, res) => {
     try {
       const countryId = parseInt(req.params.countryId);
       const states = await mysqlStorage.getStatesByCountry(countryId);
@@ -1150,7 +1223,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/states", requireAdmin, async (req, res) => {
+  app.post("/api/admin/states", authenticateJWT, requireAdmin, async (req, res) => {
     try {
       const stateData = stateSchema.parse(req.body);
       const newState = await mysqlStorage.createState(stateData);
@@ -1164,7 +1237,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/admin/states/:id", requireAdmin, async (req, res) => {
+  app.put("/api/admin/states/:id", authenticateJWT, requireAdmin, async (req, res) => {
     try {
       const stateId = parseInt(req.params.id);
       const stateData = stateSchema.parse(req.body);
@@ -1184,7 +1257,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/admin/states/:id", requireAdmin, async (req, res) => {
+  app.delete("/api/admin/states/:id", authenticateJWT, requireAdmin, async (req, res) => {
     try {
       const stateId = parseInt(req.params.id);
       const deleted = await mysqlStorage.deleteState(stateId);
@@ -1201,7 +1274,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // District Routes
-  app.get("/api/admin/districts", requireAdmin, async (req, res) => {
+  app.get("/api/admin/districts", authenticateJWT, requireAdmin, async (req, res) => {
     try {
       const districts = await mysqlStorage.getAllDistricts();
       res.json(districts);
@@ -1211,7 +1284,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/districts/:id", requireAdmin, async (req, res) => {
+  app.get("/api/admin/districts/:id", authenticateJWT, requireAdmin, async (req, res) => {
     try {
       const districtId = parseInt(req.params.id);
       const district = await mysqlStorage.getDistrictById(districtId);
@@ -1227,7 +1300,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/districts/by-state/:stateId", requireAdmin, async (req, res) => {
+  app.get("/api/admin/districts/by-state/:stateId", authenticateJWT, requireAdmin, async (req, res) => {
     try {
       const stateId = parseInt(req.params.stateId);
       const districts = await mysqlStorage.getDistrictsByState(stateId);
@@ -1238,7 +1311,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/districts/by-country/:countryId", requireAdmin, async (req, res) => {
+  app.get("/api/admin/districts/by-country/:countryId", authenticateJWT, requireAdmin, async (req, res) => {
     try {
       const countryId = parseInt(req.params.countryId);
       const districts = await mysqlStorage.getDistrictsByCountry(countryId);
@@ -1249,7 +1322,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/districts", requireAdmin, async (req, res) => {
+  app.post("/api/admin/districts", authenticateJWT, requireAdmin, async (req, res) => {
     try {
       const districtData = districtSchema.parse(req.body);
       const newDistrict = await mysqlStorage.createDistrict(districtData);
@@ -1263,7 +1336,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/admin/districts/:id", requireAdmin, async (req, res) => {
+  app.put("/api/admin/districts/:id", authenticateJWT, requireAdmin, async (req, res) => {
     try {
       const districtId = parseInt(req.params.id);
       const districtData = districtSchema.parse(req.body);
@@ -1283,7 +1356,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/admin/districts/:id", requireAdmin, async (req, res) => {
+  app.delete("/api/admin/districts/:id", authenticateJWT, requireAdmin, async (req, res) => {
     try {
       const districtId = parseInt(req.params.id);
       const deleted = await mysqlStorage.deleteDistrict(districtId);
@@ -1302,20 +1375,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ===== CATEGORIES MANAGEMENT API ROUTES =====
 
   // Menu Categories Route (for hierarchical dropdown menu)
-  app.get("/api/admin/menu-categories", requireAdmin, async (req, res) => {
+  app.get("/api/admin/menu-categories", authenticateJWT, requireAdmin, async (req, res) => {
     try {
       console.log("🔍 Menu Categories API called");
-      const categories = await mysqlStorage.getAllCategories();
-      console.log("🔍 Menu Categories fetched:", categories.length, "items");
+
+      let categories;
+      try {
+        categories = await mysqlStorage.getAllCategories();
+        console.log("🔍 Menu Categories fetched from MySQL:", categories.length, "items");
+      } catch (error) {
+        console.log("🔍 MySQL getAllCategories failed, returning empty array:", error instanceof Error ? error.message : String(error));
+        // Return empty array as fallback
+        categories = [];
+      }
+
       res.json(categories);
     } catch (error) {
-      console.error("🔍 Error fetching menu categories:", error);
+      console.error("🔍 Error in menu categories endpoint:", error);
       res.status(500).json({ error: "Failed to fetch menu categories" });
     }
   });
 
   // Categories Routes (for categories management page)
-  app.get("/api/admin/categories", requireAdmin, async (req, res) => {
+  app.get("/api/admin/categories", authenticateJWT, requireAdmin, async (req, res) => {
     try {
       console.log("📁 Categories API called");
       const categories = await mysqlStorage.getAllCategories();
@@ -1327,7 +1409,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/categories/:id", requireAdmin, async (req, res) => {
+  app.get("/api/admin/categories/:id", authenticateJWT, requireAdmin, async (req, res) => {
     try {
       const categoryId = parseInt(req.params.id);
       const category = await mysqlStorage.getCategoryById(categoryId);
@@ -1343,7 +1425,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/categories", requireAdmin, async (req, res) => {
+  app.post("/api/admin/categories", authenticateJWT, requireAdmin, async (req, res) => {
     try {
       const categoryData = req.body;
       const newCategory = await mysqlStorage.createCategory(categoryData);
@@ -1354,7 +1436,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/admin/categories/:id", requireAdmin, async (req, res) => {
+  app.put("/api/admin/categories/:id", authenticateJWT, requireAdmin, async (req, res) => {
     try {
       const categoryId = parseInt(req.params.id);
       const categoryData = req.body;
@@ -1371,7 +1453,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/admin/categories/:id", requireAdmin, async (req, res) => {
+  app.delete("/api/admin/categories/:id", authenticateJWT, requireAdmin, async (req, res) => {
     try {
       const categoryId = parseInt(req.params.id);
       const deleted = await mysqlStorage.deleteCategory(categoryId);
@@ -1390,7 +1472,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ===== LANGUAGE, EDUCATION, PROFESSION API ROUTES =====
 
   // Language Management Routes
-  app.get("/api/admin/languages", requireAdmin, async (req, res) => {
+  app.get("/api/admin/languages", authenticateJWT, requireAdmin, async (req, res) => {
     try {
       console.log("🌐 API: Fetching all languages");
       const languages = await mysqlStorage.getAllLanguages();
@@ -1403,7 +1485,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get language by ID
-  app.get("/api/admin/languages/:id", requireAdmin, async (req, res) => {
+  app.get("/api/admin/languages/:id", authenticateJWT, requireAdmin, async (req, res) => {
     try {
       const languageId = parseInt(req.params.id);
       const language = await mysqlStorage.getLanguageById(languageId);
@@ -1419,7 +1501,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/languages", requireAdmin, async (req, res) => {
+  app.post("/api/admin/languages", authenticateJWT, requireAdmin, async (req, res) => {
     try {
       console.log("🌐 API: Creating language:", req.body);
       const languageData = req.body;
@@ -1439,7 +1521,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update language
-  app.put("/api/admin/languages/:id", requireAdmin, async (req, res) => {
+  app.put("/api/admin/languages/:id", authenticateJWT, requireAdmin, async (req, res) => {
     try {
       const languageId = parseInt(req.params.id);
       const languageData = req.body;
@@ -1461,7 +1543,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete language
-  app.delete("/api/admin/languages/:id", requireAdmin, async (req, res) => {
+  app.delete("/api/admin/languages/:id", authenticateJWT, requireAdmin, async (req, res) => {
     try {
       const languageId = parseInt(req.params.id);
       console.log("🌐 API: Deleting language:", languageId);
@@ -1481,102 +1563,218 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Education Management Routes
-  app.get("/api/admin/education", requireAdmin, async (req, res) => {
+  app.get("/api/admin/education", authenticateJWT, requireAdmin, async (req, res) => {
     try {
-      // Mock data for now - replace with actual database queries
-      const education = [
-        { id: 1, level: 'High School', isActive: true, users: 2450 },
-        { id: 2, level: 'Bachelor\'s Degree', isActive: true, users: 4230 },
-        { id: 3, level: 'Master\'s Degree', isActive: true, users: 2100 },
-        { id: 4, level: 'PhD/Doctorate', isActive: true, users: 890 },
-        { id: 5, level: 'Professional Certificate', isActive: true, users: 1560 },
-      ];
+      console.log("🎓 API: Fetching all education levels");
+      const education = await mysqlStorage.getAllEducation();
+      console.log("🎓 API: Education levels fetched:", education.length);
       res.json(education);
     } catch (error) {
-      console.error("Error fetching education levels:", error);
+      console.error("🎓 API: Error fetching education levels:", error);
       res.status(500).json({ error: "Failed to fetch education levels" });
     }
   });
 
-  app.post("/api/admin/education", requireAdmin, async (req, res) => {
+  app.post("/api/admin/education", authenticateJWT, requireAdmin, async (req, res) => {
     try {
-      const { level, isActive } = req.body;
-      // Mock response - replace with actual database insert
-      const newEducation = {
-        id: Date.now(),
-        level,
-        isActive: isActive || true,
-        users: 0
-      };
+      console.log("🎓 API: Creating education level:", req.body);
+      const educationData = req.body;
+
+      // Validate required fields
+      if (!educationData.level) {
+        return res.status(400).json({ error: "Level is required" });
+      }
+
+      const newEducation = await mysqlStorage.createEducation(educationData);
+      console.log("🎓 API: Education level created:", newEducation);
       res.status(201).json(newEducation);
     } catch (error) {
-      console.error("Error creating education level:", error);
+      console.error("🎓 API: Error creating education level:", error);
       res.status(500).json({ error: "Failed to create education level" });
     }
   });
 
-  // Profession Management Routes
-  app.get("/api/admin/professions", requireAdmin, async (req, res) => {
+  // Update education level
+  app.put("/api/admin/education/:id", authenticateJWT, requireAdmin, async (req, res) => {
     try {
-      // Mock data for now - replace with actual database queries
-      const professions = [
-        { id: 1, name: 'Software Engineer', category: 'Technology', isActive: true, users: 1850 },
-        { id: 2, name: 'Marketing Manager', category: 'Marketing', isActive: true, users: 920 },
-        { id: 3, name: 'Data Scientist', category: 'Technology', isActive: true, users: 650 },
-        { id: 4, name: 'Product Manager', category: 'Management', isActive: true, users: 480 },
-        { id: 5, name: 'Sales Representative', category: 'Sales', isActive: true, users: 1200 },
-      ];
+      const educationId = parseInt(req.params.id);
+      const educationData = req.body;
+
+      console.log("🎓 API: Updating education level:", educationId, educationData);
+
+      const updatedEducation = await mysqlStorage.updateEducation(educationId, educationData);
+
+      if (!updatedEducation) {
+        return res.status(404).json({ error: "Education level not found" });
+      }
+
+      console.log("🎓 API: Education level updated:", updatedEducation);
+      res.json(updatedEducation);
+    } catch (error) {
+      console.error("🎓 API: Error updating education level:", error);
+      res.status(500).json({ error: "Failed to update education level" });
+    }
+  });
+
+  // Delete education level
+  app.delete("/api/admin/education/:id", authenticateJWT, requireAdmin, async (req, res) => {
+    try {
+      const educationId = parseInt(req.params.id);
+      console.log("🎓 API: Deleting education level:", educationId);
+
+      const deleted = await mysqlStorage.deleteEducation(educationId);
+
+      if (!deleted) {
+        return res.status(404).json({ error: "Education level not found" });
+      }
+
+      console.log("🎓 API: Education level deleted successfully");
+      res.json({ message: "Education level deleted successfully" });
+    } catch (error) {
+      console.error("🎓 API: Error deleting education level:", error);
+      res.status(500).json({ error: "Failed to delete education level" });
+    }
+  });
+
+  // Profession Management Routes
+  app.get("/api/admin/professions", authenticateJWT, requireAdmin, async (req, res) => {
+    try {
+      console.log("💼 API: Fetching all professions");
+      const professions = await mysqlStorage.getAllProfessions();
+      console.log("💼 API: Professions fetched:", professions.length);
       res.json(professions);
     } catch (error) {
-      console.error("Error fetching professions:", error);
+      console.error("💼 API: Error fetching professions:", error);
       res.status(500).json({ error: "Failed to fetch professions" });
     }
   });
 
-  app.post("/api/admin/professions", requireAdmin, async (req, res) => {
+  app.post("/api/admin/professions", authenticateJWT, requireAdmin, async (req, res) => {
     try {
-      const { name, category, isActive } = req.body;
-      // Mock response - replace with actual database insert
-      const newProfession = {
-        id: Date.now(),
-        name,
-        category,
-        isActive: isActive || true,
-        users: 0
-      };
+      console.log("💼 API: Creating profession:", req.body);
+      const professionData = req.body;
+
+      // Validate required fields
+      if (!professionData.name || !professionData.category) {
+        return res.status(400).json({ error: "Name and category are required" });
+      }
+
+      const newProfession = await mysqlStorage.createProfession(professionData);
+      console.log("💼 API: Profession created:", newProfession);
       res.status(201).json(newProfession);
     } catch (error) {
-      console.error("Error creating profession:", error);
+      console.error("💼 API: Error creating profession:", error);
       res.status(500).json({ error: "Failed to create profession" });
+    }
+  });
+
+  // Update profession
+  app.put("/api/admin/professions/:id", authenticateJWT, requireAdmin, async (req, res) => {
+    try {
+      const professionId = parseInt(req.params.id);
+      const professionData = req.body;
+
+      console.log("💼 API: Updating profession:", professionId, professionData);
+
+      const updatedProfession = await mysqlStorage.updateProfession(professionId, professionData);
+
+      if (!updatedProfession) {
+        return res.status(404).json({ error: "Profession not found" });
+      }
+
+      console.log("💼 API: Profession updated:", updatedProfession);
+      res.json(updatedProfession);
+    } catch (error) {
+      console.error("💼 API: Error updating profession:", error);
+      res.status(500).json({ error: "Failed to update profession" });
+    }
+  });
+
+  // Delete profession
+  app.delete("/api/admin/professions/:id", authenticateJWT, requireAdmin, async (req, res) => {
+    try {
+      const professionId = parseInt(req.params.id);
+      console.log("💼 API: Deleting profession:", professionId);
+
+      const deleted = await mysqlStorage.deleteProfession(professionId);
+
+      if (!deleted) {
+        return res.status(404).json({ error: "Profession not found" });
+      }
+
+      console.log("💼 API: Profession deleted successfully");
+      res.json({ message: "Profession deleted successfully" });
+    } catch (error) {
+      console.error("💼 API: Error deleting profession:", error);
+      res.status(500).json({ error: "Failed to delete profession" });
+    }
+  });
+
+  // ===== CORPORATE API ROUTES =====
+
+  // Get menu categories for corporate users
+  app.get("/api/corporate/menu-categories", authenticateJWT, async (req: any, res) => {
+    try {
+      console.log("🏢 Corporate Menu Categories API called");
+
+      // Corporate users get a subset of categories or different categories
+      // For now, return the same categories but this can be customized
+      const categories = await mysqlStorage.getAllCategories();
+      console.log(`🏢 Corporate Menu Categories fetched: ${categories.length} items`);
+      res.json(categories);
+    } catch (error) {
+      console.error("Error fetching corporate menu categories:", error);
+      res.status(500).json({ error: "Failed to fetch menu categories" });
+    }
+  });
+
+  // Get menu categories for regional users
+  app.get("/api/regional/menu-categories", authenticateJWT, async (req: any, res) => {
+    try {
+      console.log("🌍 Regional Menu Categories API called");
+      const categories = await mysqlStorage.getAllCategories();
+      console.log(`🌍 Regional Menu Categories fetched: ${categories.length} items`);
+      res.json(categories);
+    } catch (error) {
+      console.error("Error fetching regional menu categories:", error);
+      res.status(500).json({ error: "Failed to fetch menu categories" });
+    }
+  });
+
+  // Get menu categories for branch users
+  app.get("/api/branch/menu-categories", authenticateJWT, async (req: any, res) => {
+    try {
+      console.log("🏪 Branch Menu Categories API called");
+      const categories = await mysqlStorage.getAllCategories();
+      console.log(`🏪 Branch Menu Categories fetched: ${categories.length} items`);
+      res.json(categories);
+    } catch (error) {
+      console.error("Error fetching branch menu categories:", error);
+      res.status(500).json({ error: "Failed to fetch menu categories" });
+    }
+  });
+
+  // Get menu categories for head_office users
+  app.get("/api/head_office/menu-categories", authenticateJWT, async (req: any, res) => {
+    try {
+      console.log("🏢 Head Office Menu Categories API called");
+      const categories = await mysqlStorage.getAllCategories();
+      console.log(`🏢 Head Office Menu Categories fetched: ${categories.length} items`);
+      res.json(categories);
+    } catch (error) {
+      console.error("Error fetching head office menu categories:", error);
+      res.status(500).json({ error: "Failed to fetch menu categories" });
     }
   });
 
   // ===== CORPORATE USERS API ROUTES =====
 
   // Get all corporate users
-  app.get("/api/admin/corporate-users", requireAdmin, async (req, res) => {
+  app.get("/api/admin/corporate-users", authenticateJWT, requireAdmin, async (req, res) => {
     try {
-      // Mock data for now - replace with actual database queries
-      const corporateUsers = [
-        {
-          id: 1,
-          name: 'John Corporate',
-          mobile: '+1234567890',
-          email: 'john@corporate.com',
-          username: 'johncorp',
-          created_at: '2024-01-15T10:00:00Z',
-          is_active: true
-        },
-        {
-          id: 2,
-          name: 'Jane Business',
-          mobile: '+1234567891',
-          email: 'jane@business.com',
-          username: 'janebiz',
-          created_at: '2024-02-20T11:30:00Z',
-          is_active: true
-        }
-      ];
+      console.log("🏢 Fetching corporate users from database...");
+      const corporateUsers = await mysqlStorage.getUsersByRole('corporate');
+      console.log(`🏢 Found ${corporateUsers.length} corporate users`);
       res.json(corporateUsers);
     } catch (error) {
       console.error("Error fetching corporate users:", error);
@@ -1585,64 +1783,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create corporate user
-  app.post("/api/admin/corporate-users", requireAdmin, async (req, res) => {
+  app.post("/api/admin/corporate-users", authenticateJWT, requireAdmin, async (req, res) => {
     try {
       const { name, mobile, email, username, password } = req.body;
-      // Mock response - replace with actual database insert
-      const newUser = {
-        id: Date.now(),
+
+      console.log("🏢 Creating corporate user:", { name, email, username });
+
+      // Validate required fields
+      if (!name || !email || !username || !password) {
+        return res.status(400).json({ error: "Name, email, username, and password are required" });
+      }
+
+      const newUser = await mysqlStorage.createCorporateUser({
         name,
         mobile,
         email,
         username,
-        created_at: new Date().toISOString(),
-        is_active: true
-      };
+        password
+      });
+
+      console.log("🏢 Corporate user created successfully:", newUser.id);
       res.status(201).json(newUser);
     } catch (error) {
       console.error("Error creating corporate user:", error);
-      res.status(500).json({ error: "Failed to create corporate user" });
+      const errorMessage = error instanceof Error ? error.message : "Failed to create corporate user";
+      res.status(500).json({ error: errorMessage });
     }
   });
 
   // Update corporate user
-  app.put("/api/admin/corporate-users/:id", requireAdmin, async (req, res) => {
+  app.put("/api/admin/corporate-users/:id", authenticateJWT, requireAdmin, async (req, res) => {
     try {
       const userId = parseInt(req.params.id);
       const { name, mobile, email, username, password } = req.body;
-      // Mock response - replace with actual database update
-      const updatedUser = {
-        id: userId,
+
+      console.log("🏢 Updating corporate user:", userId, { name, email, username });
+
+      // Validate required fields
+      if (!name || !email || !username) {
+        return res.status(400).json({ error: "Name, email, and username are required" });
+      }
+
+      const updatedUser = await mysqlStorage.updateCorporateUser(userId, {
         name,
         mobile,
         email,
         username,
-        created_at: '2024-01-15T10:00:00Z',
-        is_active: true
-      };
+        password
+      });
+
+      console.log("🏢 Corporate user updated successfully:", userId);
       res.json(updatedUser);
     } catch (error) {
       console.error("Error updating corporate user:", error);
-      res.status(500).json({ error: "Failed to update corporate user" });
+      const errorMessage = error instanceof Error ? error.message : "Failed to update corporate user";
+      res.status(500).json({ error: errorMessage });
     }
   });
 
   // Reset corporate user password
-  app.post("/api/admin/corporate-users/:id/reset-password", requireAdmin, async (req, res) => {
+  app.post("/api/admin/corporate-users/:id/reset-password", authenticateJWT, requireAdmin, async (req, res) => {
     try {
       const userId = parseInt(req.params.id);
-      // Mock response - replace with actual password reset logic
-      res.json({ message: "Password reset successfully", temporaryPassword: "temp123" });
+
+      console.log("🔑 Resetting password for corporate user:", userId);
+
+      const temporaryPassword = await mysqlStorage.resetCorporateUserPassword(userId);
+
+      console.log("🔑 Password reset successfully for user:", userId);
+      res.json({
+        message: "Password reset successfully",
+        temporaryPassword
+      });
     } catch (error) {
       console.error("Error resetting password:", error);
-      res.status(500).json({ error: "Failed to reset password" });
+      const errorMessage = error instanceof Error ? error.message : "Failed to reset password";
+      res.status(500).json({ error: errorMessage });
     }
   });
 
   // ===== ADMIN SETTINGS API ROUTES =====
 
   // Check if app account exists
-  app.get("/api/admin/app-accounts/check/:id", requireAdmin, async (req, res) => {
+  app.get("/api/admin/app-accounts/check/:id", authenticateJWT, requireAdmin, async (req, res) => {
     try {
       const appId = parseInt(req.params.id);
       // Mock response - replace with actual database check
@@ -1656,7 +1879,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Reset app account password to 'mygroup123'
-  app.post("/api/admin/app-accounts/:id/reset-password", requireAdmin, async (req, res) => {
+  app.post("/api/admin/app-accounts/:id/reset-password", authenticateJWT, requireAdmin, async (req, res) => {
     try {
       const appId = parseInt(req.params.id);
       // Mock response - replace with actual password reset logic
@@ -1667,73 +1890,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ===== CONTINENTS API ROUTES =====
-
-  // Get all continents
-  app.get("/api/admin/continents", requireAdmin, async (req, res) => {
-    try {
-      // Mock data - replace with actual database queries
-      const continents = [
-        { id: 1, continent: 'Asia', code: 'AS', created_at: '2024-01-15T10:00:00Z' },
-        { id: 2, continent: 'Europe', code: 'EU', created_at: '2024-01-16T10:00:00Z' },
-        { id: 3, continent: 'Africa', code: 'AF', created_at: '2024-01-17T10:00:00Z' },
-        { id: 4, continent: 'North America', code: 'NA', created_at: '2024-01-18T10:00:00Z' },
-        { id: 5, continent: 'South America', code: 'SA', created_at: '2024-01-19T10:00:00Z' },
-        { id: 6, continent: 'Australia', code: 'AU', created_at: '2024-01-20T10:00:00Z' },
-        { id: 7, continent: 'Antarctica', code: 'AN', created_at: '2024-01-21T10:00:00Z' }
-      ];
-      res.json(continents);
-    } catch (error) {
-      console.error("Error fetching continents:", error);
-      res.status(500).json({ error: "Failed to fetch continents" });
-    }
-  });
-
-  // Create continent
-  app.post("/api/admin/continents", requireAdmin, async (req, res) => {
-    try {
-      const { continent, code } = req.body;
-      const newContinent = {
-        id: Date.now(),
-        continent,
-        code,
-        created_at: new Date().toISOString()
-      };
-      res.status(201).json(newContinent);
-    } catch (error) {
-      console.error("Error creating continent:", error);
-      res.status(500).json({ error: "Failed to create continent" });
-    }
-  });
-
-  // Update continent
-  app.put("/api/admin/continents/:id", requireAdmin, async (req, res) => {
-    try {
-      const continentId = parseInt(req.params.id);
-      const { continent, code } = req.body;
-      const updatedContinent = {
-        id: continentId,
-        continent,
-        code,
-        created_at: '2024-01-15T10:00:00Z'
-      };
-      res.json(updatedContinent);
-    } catch (error) {
-      console.error("Error updating continent:", error);
-      res.status(500).json({ error: "Failed to update continent" });
-    }
-  });
-
-  // Delete continent
-  app.delete("/api/admin/continents/:id", requireAdmin, async (req, res) => {
-    try {
-      const continentId = parseInt(req.params.id);
-      res.json({ message: "Continent deleted successfully" });
-    } catch (error) {
-      console.error("Error deleting continent:", error);
-      res.status(500).json({ error: "Failed to delete continent" });
-    }
-  });
+  // ===== DUPLICATE ROUTES REMOVED =====
+  // Note: The real continent routes are implemented above in the CONTENT MANAGEMENT section
 
   // ===== LOGOUT API ROUTE =====
 

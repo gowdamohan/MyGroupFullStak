@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -91,6 +91,7 @@ export default function EducationManagement({ className = "" }: EducationManagem
         description: "Education level updated successfully",
       });
       queryClient.invalidateQueries({ queryKey: ['education-list'] });
+      setShowCreateModal(false);
       setEditingEducation(null);
       resetForm();
     },
@@ -145,18 +146,41 @@ export default function EducationManagement({ className = "" }: EducationManagem
   };
 
   const handleEdit = (education: Education) => {
+    console.log('🔍 Editing education:', education);
+
+    if (!education) {
+      console.error('❌ Education object is undefined');
+      toast({
+        title: "Error",
+        description: "Invalid education data",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setEditingEducation(education);
     setEducationForm({
-      level: education.level,
-      isActive: education.isActive,
+      level: education.level || '',
+      isActive: education.isActive !== undefined ? education.isActive : true,
     });
     setShowCreateModal(true);
   };
 
   const handleDelete = (education: Education) => {
+    if (!education) {
+      console.error('❌ Education object is undefined');
+      return;
+    }
+
     if (confirm(`Are you sure you want to delete "${education.level}"?`)) {
       deleteEducationMutation.mutate(education.id);
     }
+  };
+
+  const handleCloseModal = () => {
+    setShowCreateModal(false);
+    setEditingEducation(null);
+    resetForm();
   };
 
   const columns: Column<Education>[] = [
@@ -174,12 +198,12 @@ export default function EducationManagement({ className = "" }: EducationManagem
       key: 'users',
       header: 'Users',
       sortable: true,
-      render: (education) => (education.users || 0).toLocaleString(),
+      render: (value, education) => (education.users || 0).toLocaleString(),
     },
     {
       key: 'isActive',
       header: 'Status',
-      render: (education) => (
+      render: (value, education) => (
         <Badge variant={education.isActive ? 'default' : 'secondary'}>
           {education.isActive ? 'Active' : 'Inactive'}
         </Badge>
@@ -188,7 +212,7 @@ export default function EducationManagement({ className = "" }: EducationManagem
     {
       key: 'actions',
       header: 'Actions',
-      render: (education) => (
+      render: (value, education) => (
         <div className="flex gap-2">
           <Button
             variant="outline"
@@ -217,7 +241,11 @@ export default function EducationManagement({ className = "" }: EducationManagem
           <h2 className="text-2xl font-bold">Education Management</h2>
           <p className="text-gray-600">Manage education levels and qualifications</p>
         </div>
-        <Button onClick={() => setShowCreateModal(true)}>
+        <Button onClick={() => {
+          setEditingEducation(null);
+          resetForm();
+          setShowCreateModal(true);
+        }}>
           Add Education Level
         </Button>
       </div>
@@ -230,7 +258,7 @@ export default function EducationManagement({ className = "" }: EducationManagem
         searchPlaceholder="Search education levels..."
       />
 
-      <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
+      <Dialog open={showCreateModal} onOpenChange={handleCloseModal}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>

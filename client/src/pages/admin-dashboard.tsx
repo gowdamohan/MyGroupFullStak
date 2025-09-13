@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/use-auth";
 
 interface AdminUser {
   id: number;
@@ -16,6 +17,7 @@ interface AdminUser {
 export default function AdminDashboardPage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { logout } = useAuth();
 
   // Check authentication and admin status
   const { data: authData, isLoading: authLoading, error: authError } = useQuery({
@@ -43,40 +45,23 @@ export default function AdminDashboardPage() {
     enabled: !!authData?.isAdmin,
   });
 
-  // Logout mutation
-  const logoutMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest('/api/auth/logout', {
-        method: 'POST',
-      });
-      return await response.json();
-    },
-    onSuccess: () => {
-      toast({
-        title: "Logged Out",
-        description: "You have been successfully logged out.",
-      });
-      setLocation('/admin/login');
-    },
-    onError: () => {
-      toast({
-        title: "Logout Error",
-        description: "There was an error logging out.",
-        variant: "destructive",
-      });
+  // Logout function using centralized useAuth logout
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Fallback redirect if logout fails
+      setLocation('/auth/login');
     }
-  });
+  };
 
   // Redirect if not authenticated or not admin
   useEffect(() => {
     if (authError || (authData && !authData.isAdmin)) {
-      setLocation('/admin/login');
+      setLocation('/auth/login');
     }
   }, [authData, authError, setLocation]);
-
-  const handleLogout = () => {
-    logoutMutation.mutate();
-  };
 
   if (authLoading) {
     return (
@@ -133,13 +118,12 @@ export default function AdminDashboardPage() {
                 </li>
                 <li><hr className="dropdown-divider"/></li>
                 <li>
-                  <button 
+                  <button
                     className="dropdown-item text-danger"
                     onClick={handleLogout}
-                    disabled={logoutMutation.isPending}
                   >
                     <i className="bi bi-box-arrow-right me-2"></i>
-                    {logoutMutation.isPending ? 'Logging out...' : 'Logout'}
+                    Logout
                   </button>
                 </li>
               </ul>
