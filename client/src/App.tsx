@@ -4,6 +4,7 @@ import { lazy, Suspense } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
+import { Toaster as SonnerToaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/use-auth";
 import { AdminRoute } from "@/components/ProtectedRoute";
@@ -17,6 +18,16 @@ import RegionalDashboard from "@/pages/dashboard/regional";
 import BranchDashboard from "@/pages/dashboard/branch";
 import HeadOfficeDashboard from "@/pages/dashboard/head-office";
 import NotFound from "@/pages/not-found";
+
+// Lazy load corporate sub-pages
+const CorporateHeadOfficeLogin = lazy(() => import("@/pages/dashboard/corporate/head-office-login"));
+const CorporateHeaderAds = lazy(() => import("@/pages/dashboard/corporate/header-ads"));
+const CorporateAboutUs = lazy(() => import("@/pages/dashboard/corporate/about-us"));
+const CorporateGallery = lazy(() => import("@/pages/dashboard/corporate/gallery"));
+const CorporateContactUs = lazy(() => import("@/pages/dashboard/corporate/contact-us"));
+const CorporateSocialLinks = lazy(() => import("@/pages/dashboard/corporate/social-links"));
+const CorporateFeedback = lazy(() => import("@/pages/dashboard/corporate/feedback"));
+const CorporateTermsConditions = lazy(() => import("@/pages/dashboard/corporate/terms-conditions"));
 
 // Lazy load admin sub-pages
 const AdminCategories = lazy(() => import("@/pages/dashboard/admin/categories"));
@@ -162,6 +173,46 @@ function Router() {
         </AdminRoute>
       </Route>
       <Route path="/dashboard/corporate" component={CorporateDashboard} />
+      <Route path="/dashboard/corporate/head-office-login">
+        <Suspense fallback={<div className="text-center p-5"><div className="spinner-border"></div></div>}>
+          <CorporateHeadOfficeLogin />
+        </Suspense>
+      </Route>
+      <Route path="/dashboard/corporate/header-ads">
+        <Suspense fallback={<div className="text-center p-5"><div className="spinner-border"></div></div>}>
+          <CorporateHeaderAds />
+        </Suspense>
+      </Route>
+      <Route path="/dashboard/corporate/about-us">
+        <Suspense fallback={<div className="text-center p-5"><div className="spinner-border"></div></div>}>
+          <CorporateAboutUs />
+        </Suspense>
+      </Route>
+      <Route path="/dashboard/corporate/gallery">
+        <Suspense fallback={<div className="text-center p-5"><div className="spinner-border"></div></div>}>
+          <CorporateGallery />
+        </Suspense>
+      </Route>
+      <Route path="/dashboard/corporate/contact-us">
+        <Suspense fallback={<div className="text-center p-5"><div className="spinner-border"></div></div>}>
+          <CorporateContactUs />
+        </Suspense>
+      </Route>
+      <Route path="/dashboard/corporate/social-links">
+        <Suspense fallback={<div className="text-center p-5"><div className="spinner-border"></div></div>}>
+          <CorporateSocialLinks />
+        </Suspense>
+      </Route>
+      <Route path="/dashboard/corporate/feedback">
+        <Suspense fallback={<div className="text-center p-5"><div className="spinner-border"></div></div>}>
+          <CorporateFeedback />
+        </Suspense>
+      </Route>
+      <Route path="/dashboard/corporate/terms-conditions">
+        <Suspense fallback={<div className="text-center p-5"><div className="spinner-border"></div></div>}>
+          <CorporateTermsConditions />
+        </Suspense>
+      </Route>
       <Route path="/dashboard/regional" component={RegionalDashboard} />
       <Route path="/dashboard/branch" component={BranchDashboard} />
       <Route path="/dashboard/head-office" component={HeadOfficeDashboard} />
@@ -176,6 +227,7 @@ function App() {
       <AuthProvider>
         <TooltipProvider>
           <Toaster />
+          <SonnerToaster />
           <Router />
         </TooltipProvider>
       </AuthProvider>

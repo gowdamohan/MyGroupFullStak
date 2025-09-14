@@ -1912,6 +1912,934 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== CORPORATE FEATURE API ROUTES =====
+
+  // Corporate File Upload Route
+  app.post("/api/corporate/upload", authenticateJWT, requireRole(['admin', 'corporate']), async (req, res) => {
+    try {
+      if (!req.files || Object.keys(req.files).length === 0) {
+        return res.status(400).json({ error: "No files were uploaded" });
+      }
+
+      const uploadedFiles: any[] = [];
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+      const maxSize = 10 * 1024 * 1024; // 10MB
+
+      // Process each uploaded file
+      for (const [fieldName, file] of Object.entries(req.files)) {
+        const uploadedFile = Array.isArray(file) ? file[0] : file as any;
+
+        // Validate file type
+        if (!allowedTypes.includes(uploadedFile.mimetype)) {
+          return res.status(400).json({
+            error: `Invalid file type for ${fieldName}. Allowed types: ${allowedTypes.join(', ')}`
+          });
+        }
+
+        // Validate file size
+        if (uploadedFile.size > maxSize) {
+          return res.status(400).json({
+            error: `File ${fieldName} is too large. Maximum size: ${maxSize / (1024 * 1024)}MB`
+          });
+        }
+
+        // Generate unique filename
+        const timestamp = Date.now();
+        const extension = path.extname(uploadedFile.name);
+        const filename = `${fieldName}_${timestamp}${extension}`;
+
+        // Determine upload path based on file type
+        let uploadPath: string;
+        let urlPath: string;
+
+        if (fieldName.includes('ad') || fieldName === 'image') {
+          // For ads and general images
+          uploadPath = path.join(process.cwd(), 'client', 'public', 'assets', 'images', 'ads', filename);
+          urlPath = `/assets/images/ads/${filename}`;
+        } else if (fieldName.includes('gallery')) {
+          // For gallery images
+          uploadPath = path.join(process.cwd(), 'client', 'public', 'assets', 'images', 'gallery', filename);
+          urlPath = `/assets/images/gallery/${filename}`;
+        } else if (fieldName.includes('about')) {
+          // For about us images
+          uploadPath = path.join(process.cwd(), 'client', 'public', 'assets', 'images', 'about', filename);
+          urlPath = `/assets/images/about/${filename}`;
+        } else {
+          // Default to ads folder
+          uploadPath = path.join(process.cwd(), 'client', 'public', 'assets', 'images', 'ads', filename);
+          urlPath = `/assets/images/ads/${filename}`;
+        }
+
+        // Ensure directory exists
+        const dir = path.dirname(uploadPath);
+        if (!fs.existsSync(dir)) {
+          fs.mkdirSync(dir, { recursive: true });
+        }
+
+        // Move file to destination
+        await uploadedFile.mv(uploadPath);
+
+        uploadedFiles.push({
+          fieldName,
+          originalName: uploadedFile.name,
+          filename,
+          url: urlPath,
+          size: uploadedFile.size,
+          mimetype: uploadedFile.mimetype
+        });
+      }
+
+      res.json({
+        message: "Files uploaded successfully",
+        files: uploadedFiles
+      });
+    } catch (error) {
+      console.error("Error uploading corporate files:", error);
+      res.status(500).json({ error: "Failed to upload files" });
+    }
+  });
+
+  // Corporate User Management Routes
+  app.get("/api/corporate/users", authenticateJWT, requireRole(['admin', 'corporate']), async (req, res) => {
+    try {
+      const users = await mysqlStorage.getUsersByRole('corporate');
+      res.json(users);
+    } catch (error) {
+      console.error("Error fetching corporate users:", error);
+      res.status(500).json({ error: "Failed to fetch corporate users" });
+    }
+  });
+
+  app.post("/api/corporate/users", authenticateJWT, requireRole(['admin', 'corporate']), async (req, res) => {
+    try {
+      const { name, mobile, email, username, password } = req.body;
+
+      // Validate required fields
+      if (!name || !mobile || !email || !username) {
+        return res.status(400).json({ error: "Name, mobile, email, and username are required" });
+      }
+
+      // Check if username or email already exists
+      const existingUser = await mysqlStorage.getUserByUsername(username);
+      if (existingUser) {
+        return res.status(400).json({ error: "Username already exists" });
+      }
+
+      const existingEmail = await mysqlStorage.getUserByEmail(email);
+      if (existingEmail) {
+        return res.status(400).json({ error: "Email already exists" });
+      }
+
+      // Create corporate user
+      const userData = {
+        username,
+        firstName: name,
+        email,
+        phone: mobile,
+        password: password || '123456', // Default password
+        ipAddress: req.ip || '127.0.0.1',
+        role: 'corporate'
+      };
+
+      const newUser = await mysqlStorage.createCorporateUser(userData);
+      res.status(201).json(newUser);
+    } catch (error) {
+      console.error("Error creating corporate user:", error);
+      res.status(500).json({ error: "Failed to create corporate user" });
+    }
+  });
+
+  app.put("/api/corporate/users/:id", authenticateJWT, requireRole(['admin', 'corporate']), async (req, res) => {
+    try {
+      const userId = parseInt(req.params.id);
+      const { name, mobile, email, username } = req.body;
+
+      const updateData = {
+        firstName: name,
+        phone: mobile,
+        email,
+        username
+      };
+
+      const updatedUser = await mysqlStorage.updateCorporateUser(userId, updateData);
+      if (!updatedUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Error updating corporate user:", error);
+      res.status(500).json({ error: "Failed to update corporate user" });
+    }
+  });
+
+  app.post("/api/corporate/users/:id/reset-password", authenticateJWT, requireRole(['admin', 'corporate']), async (req, res) => {
+    try {
+      const userId = parseInt(req.params.id);
+      const newPassword = await mysqlStorage.resetCorporateUserPassword(userId);
+
+      res.json({
+        message: "Password reset successfully",
+        newPassword: newPassword
+      });
+    } catch (error) {
+      console.error("Error resetting password:", error);
+      res.status(500).json({ error: "Failed to reset password" });
+    }
+  });
+
+  app.delete("/api/corporate/users/:id", authenticateJWT, requireRole(['admin', 'corporate']), async (req, res) => {
+    try {
+      const userId = parseInt(req.params.id);
+      const deleted = await mysqlStorage.deleteUser(userId);
+
+      if (!deleted) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      res.json({ message: "User deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting corporate user:", error);
+      res.status(500).json({ error: "Failed to delete corporate user" });
+    }
+  });
+
+  // Franchise Holder Management Routes
+  app.get("/api/corporate/franchise-holders", authenticateJWT, requireRole(['admin', 'corporate']), async (req, res) => {
+    try {
+      const { groupId } = req.query;
+      const franchiseHolders = await mysqlStorage.getFranchiseHolders(groupId ? parseInt(groupId as string) : undefined);
+      res.json(franchiseHolders);
+    } catch (error) {
+      console.error("Error fetching franchise holders:", error);
+      res.status(500).json({ error: "Failed to fetch franchise holders" });
+    }
+  });
+
+  app.post("/api/corporate/franchise-holders", authenticateJWT, requireRole(['admin', 'corporate']), async (req, res) => {
+    try {
+      const { userId, country, state, district } = req.body;
+
+      if (!userId) {
+        return res.status(400).json({ error: "User ID is required" });
+      }
+
+      const franchiseHolderData = {
+        userId,
+        country: country || null,
+        state: state || null,
+        district: district || null
+      };
+
+      const newFranchiseHolder = await mysqlStorage.createFranchiseHolder(franchiseHolderData);
+      res.status(201).json(newFranchiseHolder);
+    } catch (error) {
+      console.error("Error creating franchise holder:", error);
+      res.status(500).json({ error: "Failed to create franchise holder" });
+    }
+  });
+
+  app.put("/api/corporate/franchise-holders/:id", authenticateJWT, requireRole(['admin', 'corporate']), async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { country, state, district } = req.body;
+
+      const updateData = {
+        country: country || null,
+        state: state || null,
+        district: district || null
+      };
+
+      const updated = await mysqlStorage.updateFranchiseHolder(id, updateData);
+      if (!updated) {
+        return res.status(404).json({ error: "Franchise holder not found" });
+      }
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating franchise holder:", error);
+      res.status(500).json({ error: "Failed to update franchise holder" });
+    }
+  });
+
+  app.delete("/api/corporate/franchise-holders/:id", authenticateJWT, requireRole(['admin', 'corporate']), async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const deleted = await mysqlStorage.deleteFranchiseHolder(id);
+
+      if (!deleted) {
+        return res.status(404).json({ error: "Franchise holder not found" });
+      }
+
+      res.json({ message: "Franchise holder deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting franchise holder:", error);
+      res.status(500).json({ error: "Failed to delete franchise holder" });
+    }
+  });
+
+  // Corporate Ads Management Routes
+  app.get("/api/corporate/ads", authenticateJWT, requireRole(['admin', 'corporate']), async (req: any, res) => {
+    try {
+      const { adType } = req.query;
+      const userId = req.userRole === 'corporate' ? req.user.id : undefined;
+      const ads = await mysqlStorage.getCorporateAds(userId, adType as string);
+      res.json(ads);
+    } catch (error) {
+      console.error("Error fetching corporate ads:", error);
+      res.status(500).json({ error: "Failed to fetch corporate ads" });
+    }
+  });
+
+  app.post("/api/corporate/ads", authenticateJWT, requireRole(['admin', 'corporate']), async (req: any, res) => {
+    try {
+      const { adType, adPosition, adTitle, adImage, adUrl, adDescription } = req.body;
+
+      if (!adType || !adTitle) {
+        return res.status(400).json({ error: "Ad type and title are required" });
+      }
+
+      const adData = {
+        userId: req.user.id,
+        adType,
+        adPosition: adPosition || null,
+        adTitle,
+        adImage: adImage || null,
+        adUrl: adUrl || null,
+        adDescription: adDescription || null,
+        isActive: 1
+      };
+
+      const newAd = await mysqlStorage.createCorporateAd(adData);
+      res.status(201).json(newAd);
+    } catch (error) {
+      console.error("Error creating corporate ad:", error);
+      res.status(500).json({ error: "Failed to create corporate ad" });
+    }
+  });
+
+  app.put("/api/corporate/ads/:id", authenticateJWT, requireRole(['admin', 'corporate']), async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { adType, adPosition, adTitle, adImage, adUrl, adDescription, isActive } = req.body;
+
+      const updateData = {
+        adType,
+        adPosition,
+        adTitle,
+        adImage,
+        adUrl,
+        adDescription,
+        isActive
+      };
+
+      // Remove undefined values
+      Object.keys(updateData).forEach(key => {
+        if (updateData[key] === undefined) {
+          delete updateData[key];
+        }
+      });
+
+      const updated = await mysqlStorage.updateCorporateAd(id, updateData);
+      if (!updated) {
+        return res.status(404).json({ error: "Ad not found" });
+      }
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating corporate ad:", error);
+      res.status(500).json({ error: "Failed to update corporate ad" });
+    }
+  });
+
+  app.delete("/api/corporate/ads/:id", authenticateJWT, requireRole(['admin', 'corporate']), async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const deleted = await mysqlStorage.deleteCorporateAd(id);
+
+      if (!deleted) {
+        return res.status(404).json({ error: "Ad not found" });
+      }
+
+      res.json({ message: "Ad deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting corporate ad:", error);
+      res.status(500).json({ error: "Failed to delete corporate ad" });
+    }
+  });
+
+  // Popup Ads Management Routes
+  app.get("/api/corporate/popup-ads", authenticateJWT, requireRole(['admin', 'corporate']), async (req: any, res) => {
+    try {
+      const userId = req.userRole === 'corporate' ? req.user.id : undefined;
+      const popupAds = await mysqlStorage.getPopupAds(userId);
+      res.json(popupAds);
+    } catch (error) {
+      console.error("Error fetching popup ads:", error);
+      res.status(500).json({ error: "Failed to fetch popup ads" });
+    }
+  });
+
+  app.post("/api/corporate/popup-ads", authenticateJWT, requireRole(['admin', 'corporate']), async (req: any, res) => {
+    try {
+      const { sideAds, popupImage, popupTitle, popupContent } = req.body;
+
+      const popupAdData = {
+        userId: req.user.id,
+        sideAds: sideAds || null,
+        popupImage: popupImage || null,
+        popupTitle: popupTitle || null,
+        popupContent: popupContent || null,
+        isActive: 1
+      };
+
+      const newPopupAd = await mysqlStorage.createPopupAd(popupAdData);
+      res.status(201).json(newPopupAd);
+    } catch (error) {
+      console.error("Error creating popup ad:", error);
+      res.status(500).json({ error: "Failed to create popup ad" });
+    }
+  });
+
+  app.put("/api/corporate/popup-ads/:id", authenticateJWT, requireRole(['admin', 'corporate']), async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { sideAds, popupImage, popupTitle, popupContent, isActive } = req.body;
+
+      const updateData = {
+        sideAds,
+        popupImage,
+        popupTitle,
+        popupContent,
+        isActive
+      };
+
+      // Remove undefined values
+      Object.keys(updateData).forEach(key => {
+        if (updateData[key] === undefined) {
+          delete updateData[key];
+        }
+      });
+
+      const updated = await mysqlStorage.updatePopupAd(id, updateData);
+      if (!updated) {
+        return res.status(404).json({ error: "Popup ad not found" });
+      }
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating popup ad:", error);
+      res.status(500).json({ error: "Failed to update popup ad" });
+    }
+  });
+
+  app.delete("/api/corporate/popup-ads/:id", authenticateJWT, requireRole(['admin', 'corporate']), async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const deleted = await mysqlStorage.deletePopupAd(id);
+
+      if (!deleted) {
+        return res.status(404).json({ error: "Popup ad not found" });
+      }
+
+      res.json({ message: "Popup ad deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting popup ad:", error);
+      res.status(500).json({ error: "Failed to delete popup ad" });
+    }
+  });
+
+  // Terms and Conditions Management Routes
+  app.get("/api/corporate/terms-conditions", authenticateJWT, requireRole(['admin', 'corporate']), async (req: any, res) => {
+    try {
+      const userId = req.userRole === 'corporate' ? req.user.id : undefined;
+      const terms = await mysqlStorage.getTermsConditions(userId);
+      res.json(terms);
+    } catch (error) {
+      console.error("Error fetching terms and conditions:", error);
+      res.status(500).json({ error: "Failed to fetch terms and conditions" });
+    }
+  });
+
+  app.post("/api/corporate/terms-conditions", authenticateJWT, requireRole(['admin', 'corporate']), async (req: any, res) => {
+    try {
+      const { title, content, version } = req.body;
+
+      if (!title || !content) {
+        return res.status(400).json({ error: "Title and content are required" });
+      }
+
+      const termsData = {
+        userId: req.user.id,
+        title,
+        content,
+        version: version || '1.0',
+        isActive: 1
+      };
+
+      const newTerms = await mysqlStorage.createTermsConditions(termsData);
+      res.status(201).json(newTerms);
+    } catch (error) {
+      console.error("Error creating terms and conditions:", error);
+      res.status(500).json({ error: "Failed to create terms and conditions" });
+    }
+  });
+
+  app.put("/api/corporate/terms-conditions/:id", authenticateJWT, requireRole(['admin', 'corporate']), async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { title, content, version, isActive } = req.body;
+
+      const updateData = {
+        title,
+        content,
+        version,
+        isActive
+      };
+
+      // Remove undefined values
+      Object.keys(updateData).forEach(key => {
+        if (updateData[key] === undefined) {
+          delete updateData[key];
+        }
+      });
+
+      const updated = await mysqlStorage.updateTermsConditions(id, updateData);
+      if (!updated) {
+        return res.status(404).json({ error: "Terms and conditions not found" });
+      }
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating terms and conditions:", error);
+      res.status(500).json({ error: "Failed to update terms and conditions" });
+    }
+  });
+
+  app.delete("/api/corporate/terms-conditions/:id", authenticateJWT, requireRole(['admin', 'corporate']), async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const deleted = await mysqlStorage.deleteTermsConditions(id);
+
+      if (!deleted) {
+        return res.status(404).json({ error: "Terms and conditions not found" });
+      }
+
+      res.json({ message: "Terms and conditions deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting terms and conditions:", error);
+      res.status(500).json({ error: "Failed to delete terms and conditions" });
+    }
+  });
+
+  // About Us Management Routes
+  app.get("/api/corporate/about-us", authenticateJWT, requireRole(['admin', 'corporate']), async (req: any, res) => {
+    try {
+      const groupId = req.user.groupId || 0;
+      const aboutUs = await mysqlStorage.getAboutUs(groupId);
+      res.json(aboutUs);
+    } catch (error) {
+      console.error("Error fetching about us:", error);
+      res.status(500).json({ error: "Failed to fetch about us" });
+    }
+  });
+
+  app.post("/api/corporate/about-us", authenticateJWT, requireRole(['admin', 'corporate']), async (req: any, res) => {
+    try {
+      const { title, content, image } = req.body;
+
+      if (!title || !content) {
+        return res.status(400).json({ error: "Title and content are required" });
+      }
+
+      const aboutUsData = {
+        groupId: req.user.groupId || 0,
+        title,
+        content,
+        image: image || null,
+        isActive: 1
+      };
+
+      const newAboutUs = await mysqlStorage.createAboutUs(aboutUsData);
+      res.status(201).json(newAboutUs);
+    } catch (error) {
+      console.error("Error creating about us:", error);
+      res.status(500).json({ error: "Failed to create about us" });
+    }
+  });
+
+  app.put("/api/corporate/about-us/:id", authenticateJWT, requireRole(['admin', 'corporate']), async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { title, content, image, isActive } = req.body;
+
+      const updateData = {
+        title,
+        content,
+        image,
+        isActive
+      };
+
+      // Remove undefined values
+      Object.keys(updateData).forEach(key => {
+        if (updateData[key] === undefined) {
+          delete updateData[key];
+        }
+      });
+
+      const updated = await mysqlStorage.updateAboutUs(id, updateData);
+      if (!updated) {
+        return res.status(404).json({ error: "About us not found" });
+      }
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating about us:", error);
+      res.status(500).json({ error: "Failed to update about us" });
+    }
+  });
+
+  app.delete("/api/corporate/about-us/:id", authenticateJWT, requireRole(['admin', 'corporate']), async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const deleted = await mysqlStorage.deleteAboutUs(id);
+
+      if (!deleted) {
+        return res.status(404).json({ error: "About us not found" });
+      }
+
+      res.json({ message: "About us deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting about us:", error);
+      res.status(500).json({ error: "Failed to delete about us" });
+    }
+  });
+
+  // Gallery Management Routes
+  app.get("/api/corporate/galleries", authenticateJWT, requireRole(['admin', 'corporate']), async (req: any, res) => {
+    try {
+      const groupId = req.user.groupId || 0;
+      const galleries = await mysqlStorage.getGalleries(groupId);
+      res.json(galleries);
+    } catch (error) {
+      console.error("Error fetching galleries:", error);
+      res.status(500).json({ error: "Failed to fetch galleries" });
+    }
+  });
+
+  app.post("/api/corporate/galleries", authenticateJWT, requireRole(['admin', 'corporate']), async (req: any, res) => {
+    try {
+      const { galleryName, description } = req.body;
+
+      if (!galleryName) {
+        return res.status(400).json({ error: "Gallery name is required" });
+      }
+
+      const galleryData = {
+        groupId: req.user.groupId || 0,
+        galleryName,
+        description: description || null,
+        isActive: 1
+      };
+
+      const newGallery = await mysqlStorage.createGallery(galleryData);
+      res.status(201).json(newGallery);
+    } catch (error) {
+      console.error("Error creating gallery:", error);
+      res.status(500).json({ error: "Failed to create gallery" });
+    }
+  });
+
+  app.get("/api/corporate/galleries/:id/images", authenticateJWT, requireRole(['admin', 'corporate']), async (req, res) => {
+    try {
+      const galleryId = parseInt(req.params.id);
+      const images = await mysqlStorage.getGalleryImages(galleryId);
+      res.json(images);
+    } catch (error) {
+      console.error("Error fetching gallery images:", error);
+      res.status(500).json({ error: "Failed to fetch gallery images" });
+    }
+  });
+
+  app.post("/api/corporate/galleries/:id/images", authenticateJWT, requireRole(['admin', 'corporate']), async (req: any, res) => {
+    try {
+      const galleryId = parseInt(req.params.id);
+      const { images } = req.body;
+
+      if (!images || !Array.isArray(images)) {
+        return res.status(400).json({ error: "Images array is required" });
+      }
+
+      const imagesData = images.map(img => ({
+        ...img,
+        groupId: req.user.groupId || 0
+      }));
+
+      const addedImages = await mysqlStorage.addGalleryImages(galleryId, imagesData);
+      res.status(201).json(addedImages);
+    } catch (error) {
+      console.error("Error adding gallery images:", error);
+      res.status(500).json({ error: "Failed to add gallery images" });
+    }
+  });
+
+  // Contact Us Management Routes
+  app.get("/api/corporate/contact-us", authenticateJWT, requireRole(['admin', 'corporate']), async (req: any, res) => {
+    try {
+      const groupId = req.user.groupId || 0;
+      const contactUs = await mysqlStorage.getContactUs(groupId);
+      res.json(contactUs);
+    } catch (error) {
+      console.error("Error fetching contact us:", error);
+      res.status(500).json({ error: "Failed to fetch contact us" });
+    }
+  });
+
+  app.post("/api/corporate/contact-us", authenticateJWT, requireRole(['admin', 'corporate']), async (req: any, res) => {
+    try {
+      const { companyName, address, phone, email, website, mapLocation, workingHours } = req.body;
+
+      if (!companyName) {
+        return res.status(400).json({ error: "Company name is required" });
+      }
+
+      const contactUsData = {
+        groupId: req.user.groupId || 0,
+        companyName,
+        address: address || null,
+        phone: phone || null,
+        email: email || null,
+        website: website || null,
+        mapLocation: mapLocation || null,
+        workingHours: workingHours || null,
+        isActive: 1
+      };
+
+      const newContactUs = await mysqlStorage.createContactUs(contactUsData);
+      res.status(201).json(newContactUs);
+    } catch (error) {
+      console.error("Error creating contact us:", error);
+      res.status(500).json({ error: "Failed to create contact us" });
+    }
+  });
+
+  // Social Links Management Routes
+  app.get("/api/corporate/social-links", authenticateJWT, requireRole(['admin', 'corporate']), async (req: any, res) => {
+    try {
+      const groupId = req.user.groupId || 0;
+      const socialLinks = await mysqlStorage.getSocialLinks(groupId);
+      res.json(socialLinks);
+    } catch (error) {
+      console.error("Error fetching social links:", error);
+      res.status(500).json({ error: "Failed to fetch social links" });
+    }
+  });
+
+  app.post("/api/corporate/social-links", authenticateJWT, requireRole(['admin', 'corporate']), async (req: any, res) => {
+    try {
+      const { platform, url, icon } = req.body;
+
+      if (!platform || !url) {
+        return res.status(400).json({ error: "Platform and URL are required" });
+      }
+
+      const socialLinkData = {
+        groupId: req.user.groupId || 0,
+        platform,
+        url,
+        icon: icon || null,
+        isActive: 1
+      };
+
+      const newSocialLink = await mysqlStorage.createSocialLink(socialLinkData);
+      res.status(201).json(newSocialLink);
+    } catch (error) {
+      console.error("Error creating social link:", error);
+      res.status(500).json({ error: "Failed to create social link" });
+    }
+  });
+
+  // Feedback and Support Routes
+  app.get("/api/corporate/feedback", authenticateJWT, requireRole(['admin', 'corporate']), async (req: any, res) => {
+    try {
+      const userId = req.userRole === 'corporate' ? req.user.id : undefined;
+      const feedback = await mysqlStorage.getFeedbacks(userId);
+      res.json(feedback);
+    } catch (error) {
+      console.error("Error fetching feedback:", error);
+      res.status(500).json({ error: "Failed to fetch feedback" });
+    }
+  });
+
+  app.post("/api/corporate/feedback", authenticateJWT, requireRole(['admin', 'corporate']), async (req: any, res) => {
+    try {
+      const { name, email, feedbackType, subject, message, rating } = req.body;
+
+      if (!name || !email || !feedbackType || !subject || !message) {
+        return res.status(400).json({ error: "All fields are required" });
+      }
+
+      const feedbackData = {
+        userId: req.user.id,
+        name,
+        email,
+        feedbackType,
+        subject,
+        message,
+        rating: rating || null,
+        status: 'pending'
+      };
+
+      const newFeedback = await mysqlStorage.createFeedback(feedbackData);
+      res.status(201).json(newFeedback);
+    } catch (error) {
+      console.error("Error creating feedback:", error);
+      res.status(500).json({ error: "Failed to create feedback" });
+    }
+  });
+
+  // Application Forms Management Routes
+  app.get("/api/corporate/applications/franchise", authenticateJWT, requireRole(['admin', 'corporate']), async (req, res) => {
+    try {
+      const applications = await mysqlStorage.getFranchiseApplications();
+      res.json(applications);
+    } catch (error) {
+      console.error("Error fetching franchise applications:", error);
+      res.status(500).json({ error: "Failed to fetch franchise applications" });
+    }
+  });
+
+  app.get("/api/corporate/applications/job", authenticateJWT, requireRole(['admin', 'corporate']), async (req, res) => {
+    try {
+      const applications = await mysqlStorage.getJobApplications();
+      res.json(applications);
+    } catch (error) {
+      console.error("Error fetching job applications:", error);
+      res.status(500).json({ error: "Failed to fetch job applications" });
+    }
+  });
+
+  app.get("/api/corporate/applications/enquiry", authenticateJWT, requireRole(['admin', 'corporate']), async (req, res) => {
+    try {
+      const enquiries = await mysqlStorage.getEnquiryForms();
+      res.json(enquiries);
+    } catch (error) {
+      console.error("Error fetching enquiry forms:", error);
+      res.status(500).json({ error: "Failed to fetch enquiry forms" });
+    }
+  });
+
+  app.put("/api/corporate/applications/:table/:id/status", authenticateJWT, requireRole(['admin', 'corporate']), async (req, res) => {
+    try {
+      const { table, id } = req.params;
+      const { status } = req.body;
+
+      if (!status) {
+        return res.status(400).json({ error: "Status is required" });
+      }
+
+      const validTables = ['franchise_applications', 'job_applications', 'enquiry_forms'];
+      if (!validTables.includes(table)) {
+        return res.status(400).json({ error: "Invalid table name" });
+      }
+
+      const updated = await mysqlStorage.updateApplicationStatus(table, parseInt(id), status);
+      if (!updated) {
+        return res.status(404).json({ error: "Application not found" });
+      }
+
+      res.json({ message: "Application status updated successfully" });
+    } catch (error) {
+      console.error("Error updating application status:", error);
+      res.status(500).json({ error: "Failed to update application status" });
+    }
+  });
+
+  // Awards Management Routes (Footer Content)
+  app.get("/api/corporate/awards", authenticateJWT, requireRole(['admin', 'corporate']), async (req: any, res) => {
+    try {
+      const groupId = req.user.groupId || 0;
+      const awards = await mysqlStorage.getAwards(groupId);
+      res.json(awards);
+    } catch (error) {
+      console.error("Error fetching awards:", error);
+      res.status(500).json({ error: "Failed to fetch awards" });
+    }
+  });
+
+  app.post("/api/corporate/awards", authenticateJWT, requireRole(['admin', 'corporate']), async (req: any, res) => {
+    try {
+      const { title, content, image, tagLine } = req.body;
+
+      if (!title || !content) {
+        return res.status(400).json({ error: "Title and content are required" });
+      }
+
+      const awardData = {
+        groupId: req.user.groupId || 0,
+        title,
+        content,
+        image: image || null,
+        tagLine: tagLine || null,
+        isActive: 1
+      };
+
+      const newAward = await mysqlStorage.createAward(awardData);
+      res.status(201).json(newAward);
+    } catch (error) {
+      console.error("Error creating award:", error);
+      res.status(500).json({ error: "Failed to create award" });
+    }
+  });
+
+  app.put("/api/corporate/awards/:id", authenticateJWT, requireRole(['admin', 'corporate']), async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { title, content, image, tagLine, isActive } = req.body;
+
+      const updateData = {
+        title,
+        content,
+        image,
+        tagLine,
+        isActive
+      };
+
+      // Remove undefined values
+      Object.keys(updateData).forEach(key => {
+        if (updateData[key] === undefined) {
+          delete updateData[key];
+        }
+      });
+
+      const updated = await mysqlStorage.updateAward(id, updateData);
+      if (!updated) {
+        return res.status(404).json({ error: "Award not found" });
+      }
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating award:", error);
+      res.status(500).json({ error: "Failed to update award" });
+    }
+  });
+
+  app.delete("/api/corporate/awards/:id", authenticateJWT, requireRole(['admin', 'corporate']), async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const deleted = await mysqlStorage.deleteAward(id);
+
+      if (!deleted) {
+        return res.status(404).json({ error: "Award not found" });
+      }
+
+      res.json({ message: "Award deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting award:", error);
+      res.status(500).json({ error: "Failed to delete award" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

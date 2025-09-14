@@ -293,3 +293,427 @@ export type CountryInput = z.infer<typeof countrySchema>;
 export type StateInput = z.infer<typeof stateSchema>;
 export type DistrictInput = z.infer<typeof districtSchema>;
 export type LanguageInput = z.infer<typeof languageSchema>;
+
+// Corporate Feature Tables
+
+// Franchise holder table for managing head office, regional, and branch users
+export const franchiseHolder = mysqlTable("franchise_holder", {
+  id: int("id").primaryKey().autoincrement(),
+  userId: int("user_id").notNull(),
+  country: int("country"),
+  state: int("state"),
+  district: int("district"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
+// Franchise staff details table
+export const franchiseStaff = mysqlTable("franchise_staff", {
+  id: int("id").primaryKey().autoincrement(),
+  userId: int("user_id").notNull(),
+  firstName: varchar("first_name", { length: 100 }),
+  lastName: varchar("last_name", { length: 100 }),
+  email: varchar("email", { length: 100 }),
+  phone: varchar("phone", { length: 20 }),
+  address: text("address"),
+  position: varchar("position", { length: 100 }),
+  department: varchar("department", { length: 100 }),
+  joiningDate: varchar("joining_date", { length: 10 }),
+  salary: varchar("salary", { length: 20 }),
+  status: tinyint("status").default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
+// Franchise staff documents table
+export const franchiseStaffDocuments = mysqlTable("franchise_staff_documents", {
+  id: int("id").primaryKey().autoincrement(),
+  userId: int("user_id").notNull(),
+  documentType: varchar("document_type", { length: 100 }),
+  documentName: varchar("document_name", { length: 255 }),
+  documentPath: varchar("document_path", { length: 500 }),
+  uploadedAt: timestamp("uploaded_at").defaultNow(),
+});
+
+// Corporate ads management tables
+export const corporateAds = mysqlTable("corporate_ads", {
+  id: int("id").primaryKey().autoincrement(),
+  userId: int("user_id").notNull(),
+  adType: varchar("ad_type", { length: 50 }), // header, popup, main_page, company_header
+  adPosition: varchar("ad_position", { length: 50 }), // ads1, ads2, ads3, side_ads, main_ads
+  adTitle: varchar("ad_title", { length: 255 }),
+  adImage: varchar("ad_image", { length: 500 }),
+  adUrl: varchar("ad_url", { length: 500 }),
+  adDescription: text("ad_description"),
+  isActive: tinyint("is_active").default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
+// Popup ads table
+export const popupAds = mysqlTable("popup_ads", {
+  id: int("id").primaryKey().autoincrement(),
+  userId: int("user_id"),
+  sideAds: varchar("side_ads", { length: 500 }),
+  popupImage: varchar("popup_image", { length: 500 }),
+  popupTitle: varchar("popup_title", { length: 255 }),
+  popupContent: text("popup_content"),
+  isActive: tinyint("is_active").default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
+// Terms and conditions table
+export const termsConditions = mysqlTable("terms_conditions", {
+  id: int("id").primaryKey().autoincrement(),
+  userId: int("user_id"),
+  title: varchar("title", { length: 255 }),
+  content: text("content"),
+  version: varchar("version", { length: 20 }),
+  isActive: tinyint("is_active").default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
+// About us table
+export const aboutUs = mysqlTable("about", {
+  id: int("id").primaryKey().autoincrement(),
+  groupId: int("group_id").default(0),
+  title: varchar("title", { length: 255 }),
+  content: text("content"),
+  image: varchar("image", { length: 500 }),
+  isActive: tinyint("is_active").default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
+// Footer content tables for various sections
+export const awards = mysqlTable("awards", {
+  id: int("id").primaryKey().autoincrement(),
+  groupId: int("group_id").default(0),
+  title: varchar("title", { length: 255 }),
+  content: text("content"),
+  image: varchar("image", { length: 500 }),
+  tagLine: varchar("tag_line", { length: 255 }),
+  isActive: tinyint("is_active").default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
+export const newsroom = mysqlTable("newsroom", {
+  id: int("id").primaryKey().autoincrement(),
+  groupId: int("group_id").default(0),
+  title: varchar("title", { length: 255 }),
+  content: text("content"),
+  image: varchar("image", { length: 500 }),
+  tagLine: varchar("tag_line", { length: 255 }),
+  isActive: tinyint("is_active").default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
+export const events = mysqlTable("events", {
+  id: int("id").primaryKey().autoincrement(),
+  groupId: int("group_id").default(0),
+  title: varchar("title", { length: 255 }),
+  content: text("content"),
+  image: varchar("image", { length: 500 }),
+  tagLine: varchar("tag_line", { length: 255 }),
+  eventDate: varchar("event_date", { length: 20 }),
+  eventLocation: varchar("event_location", { length: 255 }),
+  isActive: tinyint("is_active").default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
+export const careers = mysqlTable("careers", {
+  id: int("id").primaryKey().autoincrement(),
+  groupId: int("group_id").default(0),
+  title: varchar("title", { length: 255 }),
+  content: text("content"),
+  image: varchar("image", { length: 500 }),
+  tagLine: varchar("tag_line", { length: 255 }),
+  isActive: tinyint("is_active").default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
+export const clients = mysqlTable("clients", {
+  id: int("id").primaryKey().autoincrement(),
+  groupId: int("group_id").default(0),
+  title: varchar("title", { length: 255 }),
+  content: text("content"),
+  image: varchar("image", { length: 500 }),
+  tagLine: varchar("tag_line", { length: 255 }),
+  isActive: tinyint("is_active").default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
+export const milestones = mysqlTable("milestones", {
+  id: int("id").primaryKey().autoincrement(),
+  groupId: int("group_id").default(0),
+  title: varchar("title", { length: 255 }),
+  content: text("content"),
+  image: varchar("image", { length: 500 }),
+  tagLine: varchar("tag_line", { length: 255 }),
+  milestoneDate: varchar("milestone_date", { length: 20 }),
+  isActive: tinyint("is_active").default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
+export const testimonials = mysqlTable("testimonials", {
+  id: int("id").primaryKey().autoincrement(),
+  groupId: int("group_id").default(0),
+  title: varchar("title", { length: 255 }),
+  content: text("content"),
+  image: varchar("image", { length: 500 }),
+  tagLine: varchar("tag_line", { length: 255 }),
+  clientName: varchar("client_name", { length: 255 }),
+  clientPosition: varchar("client_position", { length: 255 }),
+  rating: tinyint("rating").default(5),
+  isActive: tinyint("is_active").default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
+// Gallery tables
+export const gallery = mysqlTable("gallery", {
+  id: int("id").primaryKey().autoincrement(),
+  groupId: int("group_id").default(0),
+  galleryName: varchar("gallery_name", { length: 255 }),
+  description: text("description"),
+  isActive: tinyint("is_active").default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
+export const galleryImages = mysqlTable("gallery_images", {
+  id: int("id").primaryKey().autoincrement(),
+  galleryId: int("gallery_id").notNull(),
+  groupId: int("group_id").default(0),
+  imageName: varchar("image_name", { length: 500 }),
+  imageDescription: text("image_description"),
+  uploadedAt: timestamp("uploaded_at").defaultNow(),
+});
+
+// Contact us table
+export const contactUs = mysqlTable("contact_us", {
+  id: int("id").primaryKey().autoincrement(),
+  groupId: int("group_id").default(0),
+  companyName: varchar("company_name", { length: 255 }),
+  address: text("address"),
+  phone: varchar("phone", { length: 50 }),
+  email: varchar("email", { length: 100 }),
+  website: varchar("website", { length: 255 }),
+  mapLocation: text("map_location"),
+  workingHours: text("working_hours"),
+  isActive: tinyint("is_active").default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
+// Social media links table
+export const socialLinks = mysqlTable("social_links", {
+  id: int("id").primaryKey().autoincrement(),
+  groupId: int("group_id").default(0),
+  platform: varchar("platform", { length: 50 }), // facebook, twitter, instagram, linkedin, youtube
+  url: varchar("url", { length: 500 }),
+  icon: varchar("icon", { length: 255 }),
+  isActive: tinyint("is_active").default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
+// Privacy and policy table
+export const privacyPolicy = mysqlTable("privacy_policy", {
+  id: int("id").primaryKey().autoincrement(),
+  groupId: int("group_id").default(0),
+  title: varchar("title", { length: 255 }),
+  content: text("content"),
+  version: varchar("version", { length: 20 }),
+  isActive: tinyint("is_active").default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
+// Application forms tables
+export const franchiseApplications = mysqlTable("franchise_applications", {
+  id: int("id").primaryKey().autoincrement(),
+  applicantName: varchar("applicant_name", { length: 255 }),
+  email: varchar("email", { length: 100 }),
+  phone: varchar("phone", { length: 20 }),
+  address: text("address"),
+  businessExperience: text("business_experience"),
+  investmentCapacity: varchar("investment_capacity", { length: 100 }),
+  preferredLocation: varchar("preferred_location", { length: 255 }),
+  message: text("message"),
+  status: varchar("status", { length: 50 }).default('pending'),
+  submittedAt: timestamp("submitted_at").defaultNow(),
+});
+
+export const jobApplications = mysqlTable("job_applications", {
+  id: int("id").primaryKey().autoincrement(),
+  applicantName: varchar("applicant_name", { length: 255 }),
+  email: varchar("email", { length: 100 }),
+  phone: varchar("phone", { length: 20 }),
+  position: varchar("position", { length: 255 }),
+  experience: text("experience"),
+  education: text("education"),
+  skills: text("skills"),
+  resume: varchar("resume", { length: 500 }),
+  coverLetter: text("cover_letter"),
+  status: varchar("status", { length: 50 }).default('pending'),
+  submittedAt: timestamp("submitted_at").defaultNow(),
+});
+
+export const enquiryForms = mysqlTable("enquiry_forms", {
+  id: int("id").primaryKey().autoincrement(),
+  name: varchar("name", { length: 255 }),
+  email: varchar("email", { length: 100 }),
+  phone: varchar("phone", { length: 20 }),
+  subject: varchar("subject", { length: 255 }),
+  message: text("message"),
+  enquiryType: varchar("enquiry_type", { length: 100 }),
+  status: varchar("status", { length: 50 }).default('pending'),
+  submittedAt: timestamp("submitted_at").defaultNow(),
+});
+
+// Support system tables
+export const feedbackSuggestions = mysqlTable("feedback_suggestions", {
+  id: int("id").primaryKey().autoincrement(),
+  userId: int("user_id"),
+  name: varchar("name", { length: 255 }),
+  email: varchar("email", { length: 100 }),
+  feedbackType: varchar("feedback_type", { length: 100 }), // feedback, suggestion, complaint
+  subject: varchar("subject", { length: 255 }),
+  message: text("message"),
+  rating: tinyint("rating"),
+  status: varchar("status", { length: 50 }).default('pending'),
+  response: text("response"),
+  respondedBy: int("responded_by"),
+  respondedAt: timestamp("responded_at"),
+  submittedAt: timestamp("submitted_at").defaultNow(),
+});
+
+export const chatMessages = mysqlTable("chat_messages", {
+  id: int("id").primaryKey().autoincrement(),
+  userId: int("user_id").notNull(),
+  adminId: int("admin_id"),
+  message: text("message"),
+  messageType: varchar("message_type", { length: 50 }).default('text'), // text, image, file
+  attachment: varchar("attachment", { length: 500 }),
+  isFromUser: tinyint("is_from_user").default(1),
+  isRead: tinyint("is_read").default(0),
+  sentAt: timestamp("sent_at").defaultNow(),
+});
+
+// Copy rights table
+export const copyRights = mysqlTable("copy_rights", {
+  id: int("id").primaryKey().autoincrement(),
+  groupId: int("group_id").default(0),
+  copyRight: text("copy_right"),
+  year: varchar("year", { length: 4 }),
+  isActive: tinyint("is_active").default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
+// Corporate feature schemas
+export const corporateUserSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  mobile: z.string().min(10, "Mobile number must be at least 10 digits"),
+  email: z.string().email("Invalid email address"),
+  username: z.string().min(3, "Username must be at least 3 characters"),
+  password: z.string().min(6, "Password must be at least 6 characters").optional(),
+});
+
+export const franchiseHolderSchema = z.object({
+  userId: z.number().min(1, "User ID is required"),
+  country: z.number().optional(),
+  state: z.number().optional(),
+  district: z.number().optional(),
+});
+
+export const corporateAdSchema = z.object({
+  adType: z.string().min(1, "Ad type is required"),
+  adPosition: z.string().optional(),
+  adTitle: z.string().min(1, "Ad title is required"),
+  adImage: z.string().optional(),
+  adUrl: z.string().optional(),
+  adDescription: z.string().optional(),
+  isActive: z.number().default(1),
+});
+
+export const termsConditionsSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  content: z.string().min(1, "Content is required"),
+  version: z.string().optional(),
+  isActive: z.number().default(1),
+});
+
+export const footerContentSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  content: z.string().min(1, "Content is required"),
+  image: z.string().optional(),
+  tagLine: z.string().optional(),
+  isActive: z.number().default(1),
+});
+
+export const gallerySchema = z.object({
+  galleryName: z.string().min(1, "Gallery name is required"),
+  description: z.string().optional(),
+  isActive: z.number().default(1),
+});
+
+export const contactUsSchema = z.object({
+  companyName: z.string().min(1, "Company name is required"),
+  address: z.string().optional(),
+  phone: z.string().optional(),
+  email: z.string().email("Invalid email address").optional(),
+  website: z.string().optional(),
+  mapLocation: z.string().optional(),
+  workingHours: z.string().optional(),
+  isActive: z.number().default(1),
+});
+
+export const socialLinkSchema = z.object({
+  platform: z.string().min(1, "Platform is required"),
+  url: z.string().url("Invalid URL"),
+  icon: z.string().optional(),
+  isActive: z.number().default(1),
+});
+
+export const feedbackSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  email: z.string().email("Invalid email address"),
+  feedbackType: z.string().min(1, "Feedback type is required"),
+  subject: z.string().min(1, "Subject is required"),
+  message: z.string().min(1, "Message is required"),
+  rating: z.number().min(1).max(5).optional(),
+});
+
+// Type exports for corporate features
+export type FranchiseHolder = typeof franchiseHolder.$inferSelect;
+export type InsertFranchiseHolder = typeof franchiseHolder.$inferInsert;
+export type FranchiseStaff = typeof franchiseStaff.$inferSelect;
+export type InsertFranchiseStaff = typeof franchiseStaff.$inferInsert;
+export type CorporateAd = typeof corporateAds.$inferSelect;
+export type InsertCorporateAd = typeof corporateAds.$inferInsert;
+export type PopupAd = typeof popupAds.$inferSelect;
+export type InsertPopupAd = typeof popupAds.$inferInsert;
+export type TermsCondition = typeof termsConditions.$inferSelect;
+export type InsertTermsCondition = typeof termsConditions.$inferInsert;
+export type AboutUs = typeof aboutUs.$inferSelect;
+export type InsertAboutUs = typeof aboutUs.$inferInsert;
+export type Award = typeof awards.$inferSelect;
+export type InsertAward = typeof awards.$inferInsert;
+export type Gallery = typeof gallery.$inferSelect;
+export type InsertGallery = typeof gallery.$inferInsert;
+export type ContactUs = typeof contactUs.$inferSelect;
+export type InsertContactUs = typeof contactUs.$inferInsert;
+export type SocialLink = typeof socialLinks.$inferSelect;
+export type InsertSocialLink = typeof socialLinks.$inferInsert;
+export type FeedbackSuggestion = typeof feedbackSuggestions.$inferSelect;
+export type InsertFeedbackSuggestion = typeof feedbackSuggestions.$inferInsert;

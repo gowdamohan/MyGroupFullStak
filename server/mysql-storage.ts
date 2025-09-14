@@ -12,6 +12,31 @@ import {
   stateTbl,
   districtTbl,
   languageTbl,
+  franchiseHolder,
+  franchiseStaff,
+  franchiseStaffDocuments,
+  corporateAds,
+  popupAds,
+  termsConditions,
+  aboutUs,
+  awards,
+  newsroom,
+  events,
+  careers,
+  clients,
+  milestones,
+  testimonials,
+  gallery,
+  galleryImages,
+  contactUs,
+  socialLinks,
+  privacyPolicy,
+  franchiseApplications,
+  jobApplications,
+  enquiryForms,
+  feedbackSuggestions,
+  chatMessages,
+  copyRights,
   type User,
   type InsertUser,
   type GroupCreate,
@@ -32,7 +57,29 @@ import {
   type CountryInput,
   type StateInput,
   type DistrictInput,
-  type LanguageInput
+  type LanguageInput,
+  type FranchiseHolder,
+  type InsertFranchiseHolder,
+  type FranchiseStaff,
+  type InsertFranchiseStaff,
+  type CorporateAd,
+  type InsertCorporateAd,
+  type PopupAd,
+  type InsertPopupAd,
+  type TermsCondition,
+  type InsertTermsCondition,
+  type AboutUs,
+  type InsertAboutUs,
+  type Award,
+  type InsertAward,
+  type Gallery,
+  type InsertGallery,
+  type ContactUs,
+  type InsertContactUs,
+  type SocialLink,
+  type InsertSocialLink,
+  type FeedbackSuggestion,
+  type InsertFeedbackSuggestion
 } from "@shared/schema";
 import bcrypt from "bcryptjs";
 import { dbConfig } from "./mysql-connection.js";
@@ -59,6 +106,76 @@ export interface IMySQLStorage {
   executeQuery(query: string): Promise<any>;
   createDemoUsers(): Promise<void>;
   seedGroupsAndUsers(): Promise<void>;
+
+  // Corporate Feature Methods
+  // Franchise Holder Management
+  createFranchiseHolder(data: InsertFranchiseHolder): Promise<FranchiseHolder>;
+  getFranchiseHolders(groupId?: number): Promise<any[]>;
+  getFranchiseHoldersByCountry(countryId: number, groupId?: number): Promise<any[]>;
+  updateFranchiseHolder(id: number, data: Partial<InsertFranchiseHolder>): Promise<FranchiseHolder | null>;
+  deleteFranchiseHolder(id: number): Promise<boolean>;
+
+  // Corporate Ads Management
+  createCorporateAd(data: InsertCorporateAd): Promise<CorporateAd>;
+  getCorporateAds(userId?: number, adType?: string): Promise<CorporateAd[]>;
+  updateCorporateAd(id: number, data: Partial<InsertCorporateAd>): Promise<CorporateAd | null>;
+  deleteCorporateAd(id: number): Promise<boolean>;
+
+  // Popup Ads Management
+  createPopupAd(data: InsertPopupAd): Promise<PopupAd>;
+  getPopupAds(userId?: number): Promise<PopupAd[]>;
+  updatePopupAd(id: number, data: Partial<InsertPopupAd>): Promise<PopupAd | null>;
+  deletePopupAd(id: number): Promise<boolean>;
+
+  // Terms and Conditions Management
+  createTermsConditions(data: InsertTermsCondition): Promise<TermsCondition>;
+  getTermsConditions(userId?: number): Promise<TermsCondition[]>;
+  updateTermsConditions(id: number, data: Partial<InsertTermsCondition>): Promise<TermsCondition | null>;
+  deleteTermsConditions(id: number): Promise<boolean>;
+
+  // Footer Content Management
+  createAboutUs(data: InsertAboutUs): Promise<AboutUs>;
+  getAboutUs(groupId?: number): Promise<AboutUs[]>;
+  updateAboutUs(id: number, data: Partial<InsertAboutUs>): Promise<AboutUs | null>;
+  deleteAboutUs(id: number): Promise<boolean>;
+
+  createAward(data: InsertAward): Promise<Award>;
+  getAwards(groupId?: number): Promise<Award[]>;
+  updateAward(id: number, data: Partial<InsertAward>): Promise<Award | null>;
+  deleteAward(id: number): Promise<boolean>;
+
+  // Gallery Management
+  createGallery(data: InsertGallery): Promise<Gallery>;
+  getGalleries(groupId?: number): Promise<Gallery[]>;
+  updateGallery(id: number, data: Partial<InsertGallery>): Promise<Gallery | null>;
+  deleteGallery(id: number): Promise<boolean>;
+  addGalleryImages(galleryId: number, images: any[]): Promise<any[]>;
+  getGalleryImages(galleryId: number): Promise<any[]>;
+  deleteGalleryImage(id: number): Promise<boolean>;
+
+  // Contact Us Management
+  createContactUs(data: InsertContactUs): Promise<ContactUs>;
+  getContactUs(groupId?: number): Promise<ContactUs[]>;
+  updateContactUs(id: number, data: Partial<InsertContactUs>): Promise<ContactUs | null>;
+  deleteContactUs(id: number): Promise<boolean>;
+
+  // Social Links Management
+  createSocialLink(data: InsertSocialLink): Promise<SocialLink>;
+  getSocialLinks(groupId?: number): Promise<SocialLink[]>;
+  updateSocialLink(id: number, data: Partial<InsertSocialLink>): Promise<SocialLink | null>;
+  deleteSocialLink(id: number): Promise<boolean>;
+
+  // Support System
+  createFeedback(data: InsertFeedbackSuggestion): Promise<FeedbackSuggestion>;
+  getFeedbacks(userId?: number): Promise<FeedbackSuggestion[]>;
+  updateFeedback(id: number, data: Partial<InsertFeedbackSuggestion>): Promise<FeedbackSuggestion | null>;
+  deleteFeedback(id: number): Promise<boolean>;
+
+  // Application Forms
+  getFranchiseApplications(): Promise<any[]>;
+  getJobApplications(): Promise<any[]>;
+  getEnquiryForms(): Promise<any[]>;
+  updateApplicationStatus(table: string, id: number, status: string): Promise<boolean>;
 }
 
 export class MySQLStorage implements IMySQLStorage {
@@ -2121,6 +2238,593 @@ export class MySQLStorage implements IMySQLStorage {
       return result;
     } catch (error) {
       console.error("Error executing query:", error);
+      throw error;
+    }
+  }
+
+  // Corporate Feature Methods Implementation
+
+  // Franchise Holder Management
+  async createFranchiseHolder(data: InsertFranchiseHolder): Promise<FranchiseHolder> {
+    try {
+      const result = await db.insert(franchiseHolder).values(data);
+      const [newRecord] = await db.select().from(franchiseHolder).where(eq(franchiseHolder.id, result[0].insertId));
+      return newRecord;
+    } catch (error) {
+      console.error("Error creating franchise holder:", error);
+      throw error;
+    }
+  }
+
+  async getFranchiseHolders(groupId?: number): Promise<any[]> {
+    try {
+      const query = `
+        SELECT fh.*, u.username, u.first_name, u.last_name, u.email, u.phone,
+               c.country as country_name, s.state as state_name, d.district as district_name
+        FROM franchise_holder fh
+        LEFT JOIN users u ON fh.user_id = u.id
+        LEFT JOIN country_tbl c ON fh.country = c.id
+        LEFT JOIN state_tbl s ON fh.state = s.id
+        LEFT JOIN district_tbl d ON fh.district = d.id
+        ${groupId ? 'WHERE u.group_id = ?' : ''}
+        ORDER BY fh.created_at DESC
+      `;
+      const [rows] = await connection.execute(query, groupId ? [groupId] : []);
+      return rows as any[];
+    } catch (error) {
+      console.error("Error fetching franchise holders:", error);
+      throw error;
+    }
+  }
+
+  async getFranchiseHoldersByCountry(countryId: number, groupId?: number): Promise<any[]> {
+    try {
+      const query = `
+        SELECT fh.*, u.username, u.first_name, u.last_name, u.email, u.phone,
+               c.country as country_name, s.state as state_name, d.district as district_name
+        FROM franchise_holder fh
+        LEFT JOIN users u ON fh.user_id = u.id
+        LEFT JOIN country_tbl c ON fh.country = c.id
+        LEFT JOIN state_tbl s ON fh.state = s.id
+        LEFT JOIN district_tbl d ON fh.district = d.id
+        WHERE fh.country = ? ${groupId ? 'AND u.group_id = ?' : ''}
+        ORDER BY fh.created_at DESC
+      `;
+      const params = groupId ? [countryId, groupId] : [countryId];
+      const [rows] = await connection.execute(query, params);
+      return rows as any[];
+    } catch (error) {
+      console.error("Error fetching franchise holders by country:", error);
+      throw error;
+    }
+  }
+
+  async updateFranchiseHolder(id: number, data: Partial<InsertFranchiseHolder>): Promise<FranchiseHolder | null> {
+    try {
+      await db.update(franchiseHolder).set(data).where(eq(franchiseHolder.id, id));
+      const [updated] = await db.select().from(franchiseHolder).where(eq(franchiseHolder.id, id));
+      return updated || null;
+    } catch (error) {
+      console.error("Error updating franchise holder:", error);
+      throw error;
+    }
+  }
+
+  async deleteFranchiseHolder(id: number): Promise<boolean> {
+    try {
+      const result = await db.delete(franchiseHolder).where(eq(franchiseHolder.id, id));
+      return result[0].affectedRows > 0;
+    } catch (error) {
+      console.error("Error deleting franchise holder:", error);
+      throw error;
+    }
+  }
+
+  // Corporate Ads Management
+  async createCorporateAd(data: InsertCorporateAd): Promise<CorporateAd> {
+    try {
+      const result = await db.insert(corporateAds).values(data);
+      const [newRecord] = await db.select().from(corporateAds).where(eq(corporateAds.id, result[0].insertId));
+      return newRecord;
+    } catch (error) {
+      console.error("Error creating corporate ad:", error);
+      throw error;
+    }
+  }
+
+  async getCorporateAds(userId?: number, adType?: string): Promise<CorporateAd[]> {
+    try {
+      let query = db.select().from(corporateAds);
+
+      if (userId && adType) {
+        query = query.where(eq(corporateAds.userId, userId) && eq(corporateAds.adType, adType));
+      } else if (userId) {
+        query = query.where(eq(corporateAds.userId, userId));
+      } else if (adType) {
+        query = query.where(eq(corporateAds.adType, adType));
+      }
+
+      return await query;
+    } catch (error) {
+      console.error("Error fetching corporate ads:", error);
+      throw error;
+    }
+  }
+
+  async updateCorporateAd(id: number, data: Partial<InsertCorporateAd>): Promise<CorporateAd | null> {
+    try {
+      await db.update(corporateAds).set(data).where(eq(corporateAds.id, id));
+      const [updated] = await db.select().from(corporateAds).where(eq(corporateAds.id, id));
+      return updated || null;
+    } catch (error) {
+      console.error("Error updating corporate ad:", error);
+      throw error;
+    }
+  }
+
+  async deleteCorporateAd(id: number): Promise<boolean> {
+    try {
+      const result = await db.delete(corporateAds).where(eq(corporateAds.id, id));
+      return result[0].affectedRows > 0;
+    } catch (error) {
+      console.error("Error deleting corporate ad:", error);
+      throw error;
+    }
+  }
+
+  // Popup Ads Management
+  async createPopupAd(data: InsertPopupAd): Promise<PopupAd> {
+    try {
+      const result = await db.insert(popupAds).values(data);
+      const [newRecord] = await db.select().from(popupAds).where(eq(popupAds.id, result[0].insertId));
+      return newRecord;
+    } catch (error) {
+      console.error("Error creating popup ad:", error);
+      throw error;
+    }
+  }
+
+  async getPopupAds(userId?: number): Promise<PopupAd[]> {
+    try {
+      let query = db.select().from(popupAds);
+      if (userId) {
+        query = query.where(eq(popupAds.userId, userId));
+      }
+      return await query;
+    } catch (error) {
+      console.error("Error fetching popup ads:", error);
+      throw error;
+    }
+  }
+
+  async updatePopupAd(id: number, data: Partial<InsertPopupAd>): Promise<PopupAd | null> {
+    try {
+      await db.update(popupAds).set(data).where(eq(popupAds.id, id));
+      const [updated] = await db.select().from(popupAds).where(eq(popupAds.id, id));
+      return updated || null;
+    } catch (error) {
+      console.error("Error updating popup ad:", error);
+      throw error;
+    }
+  }
+
+  async deletePopupAd(id: number): Promise<boolean> {
+    try {
+      const result = await db.delete(popupAds).where(eq(popupAds.id, id));
+      return result[0].affectedRows > 0;
+    } catch (error) {
+      console.error("Error deleting popup ad:", error);
+      throw error;
+    }
+  }
+
+  // Terms and Conditions Management
+  async createTermsConditions(data: InsertTermsCondition): Promise<TermsCondition> {
+    try {
+      const result = await db.insert(termsConditions).values(data);
+      const [newRecord] = await db.select().from(termsConditions).where(eq(termsConditions.id, result[0].insertId));
+      return newRecord;
+    } catch (error) {
+      console.error("Error creating terms and conditions:", error);
+      throw error;
+    }
+  }
+
+  async getTermsConditions(userId?: number): Promise<TermsCondition[]> {
+    try {
+      let query = db.select().from(termsConditions);
+      if (userId) {
+        query = query.where(eq(termsConditions.userId, userId));
+      }
+      return await query;
+    } catch (error) {
+      console.error("Error fetching terms and conditions:", error);
+      throw error;
+    }
+  }
+
+  async updateTermsConditions(id: number, data: Partial<InsertTermsCondition>): Promise<TermsCondition | null> {
+    try {
+      await db.update(termsConditions).set(data).where(eq(termsConditions.id, id));
+      const [updated] = await db.select().from(termsConditions).where(eq(termsConditions.id, id));
+      return updated || null;
+    } catch (error) {
+      console.error("Error updating terms and conditions:", error);
+      throw error;
+    }
+  }
+
+  async deleteTermsConditions(id: number): Promise<boolean> {
+    try {
+      const result = await db.delete(termsConditions).where(eq(termsConditions.id, id));
+      return result[0].affectedRows > 0;
+    } catch (error) {
+      console.error("Error deleting terms and conditions:", error);
+      throw error;
+    }
+  }
+
+  // About Us Management
+  async createAboutUs(data: InsertAboutUs): Promise<AboutUs> {
+    try {
+      const result = await db.insert(aboutUs).values(data);
+      const [newRecord] = await db.select().from(aboutUs).where(eq(aboutUs.id, result[0].insertId));
+      return newRecord;
+    } catch (error) {
+      console.error("Error creating about us:", error);
+      throw error;
+    }
+  }
+
+  async getAboutUs(groupId?: number): Promise<AboutUs[]> {
+    try {
+      let query = db.select().from(aboutUs);
+      if (groupId !== undefined) {
+        query = query.where(eq(aboutUs.groupId, groupId));
+      }
+      return await query;
+    } catch (error) {
+      console.error("Error fetching about us:", error);
+      throw error;
+    }
+  }
+
+  async updateAboutUs(id: number, data: Partial<InsertAboutUs>): Promise<AboutUs | null> {
+    try {
+      await db.update(aboutUs).set(data).where(eq(aboutUs.id, id));
+      const [updated] = await db.select().from(aboutUs).where(eq(aboutUs.id, id));
+      return updated || null;
+    } catch (error) {
+      console.error("Error updating about us:", error);
+      throw error;
+    }
+  }
+
+  async deleteAboutUs(id: number): Promise<boolean> {
+    try {
+      const result = await db.delete(aboutUs).where(eq(aboutUs.id, id));
+      return result[0].affectedRows > 0;
+    } catch (error) {
+      console.error("Error deleting about us:", error);
+      throw error;
+    }
+  }
+
+  // Awards Management
+  async createAward(data: InsertAward): Promise<Award> {
+    try {
+      const result = await db.insert(awards).values(data);
+      const [newRecord] = await db.select().from(awards).where(eq(awards.id, result[0].insertId));
+      return newRecord;
+    } catch (error) {
+      console.error("Error creating award:", error);
+      throw error;
+    }
+  }
+
+  async getAwards(groupId?: number): Promise<Award[]> {
+    try {
+      let query = db.select().from(awards);
+      if (groupId !== undefined) {
+        query = query.where(eq(awards.groupId, groupId));
+      }
+      return await query;
+    } catch (error) {
+      console.error("Error fetching awards:", error);
+      throw error;
+    }
+  }
+
+  async updateAward(id: number, data: Partial<InsertAward>): Promise<Award | null> {
+    try {
+      await db.update(awards).set(data).where(eq(awards.id, id));
+      const [updated] = await db.select().from(awards).where(eq(awards.id, id));
+      return updated || null;
+    } catch (error) {
+      console.error("Error updating award:", error);
+      throw error;
+    }
+  }
+
+  async deleteAward(id: number): Promise<boolean> {
+    try {
+      const result = await db.delete(awards).where(eq(awards.id, id));
+      return result[0].affectedRows > 0;
+    } catch (error) {
+      console.error("Error deleting award:", error);
+      throw error;
+    }
+  }
+
+  // Gallery Management
+  async createGallery(data: InsertGallery): Promise<Gallery> {
+    try {
+      const result = await db.insert(gallery).values(data);
+      const [newRecord] = await db.select().from(gallery).where(eq(gallery.id, result[0].insertId));
+      return newRecord;
+    } catch (error) {
+      console.error("Error creating gallery:", error);
+      throw error;
+    }
+  }
+
+  async getGalleries(groupId?: number): Promise<Gallery[]> {
+    try {
+      let query = db.select().from(gallery);
+      if (groupId !== undefined) {
+        query = query.where(eq(gallery.groupId, groupId));
+      }
+      return await query;
+    } catch (error) {
+      console.error("Error fetching galleries:", error);
+      throw error;
+    }
+  }
+
+  async updateGallery(id: number, data: Partial<InsertGallery>): Promise<Gallery | null> {
+    try {
+      await db.update(gallery).set(data).where(eq(gallery.id, id));
+      const [updated] = await db.select().from(gallery).where(eq(gallery.id, id));
+      return updated || null;
+    } catch (error) {
+      console.error("Error updating gallery:", error);
+      throw error;
+    }
+  }
+
+  async deleteGallery(id: number): Promise<boolean> {
+    try {
+      const result = await db.delete(gallery).where(eq(gallery.id, id));
+      return result[0].affectedRows > 0;
+    } catch (error) {
+      console.error("Error deleting gallery:", error);
+      throw error;
+    }
+  }
+
+  async addGalleryImages(galleryId: number, images: any[]): Promise<any[]> {
+    try {
+      const insertData = images.map(img => ({
+        galleryId,
+        groupId: img.groupId || 0,
+        imageName: img.imageName,
+        imageDescription: img.imageDescription || null
+      }));
+
+      const result = await db.insert(galleryImages).values(insertData);
+      return result;
+    } catch (error) {
+      console.error("Error adding gallery images:", error);
+      throw error;
+    }
+  }
+
+  async getGalleryImages(galleryId: number): Promise<any[]> {
+    try {
+      return await db.select().from(galleryImages).where(eq(galleryImages.galleryId, galleryId));
+    } catch (error) {
+      console.error("Error fetching gallery images:", error);
+      throw error;
+    }
+  }
+
+  async deleteGalleryImage(id: number): Promise<boolean> {
+    try {
+      const result = await db.delete(galleryImages).where(eq(galleryImages.id, id));
+      return result[0].affectedRows > 0;
+    } catch (error) {
+      console.error("Error deleting gallery image:", error);
+      throw error;
+    }
+  }
+
+  // Contact Us Management
+  async createContactUs(data: InsertContactUs): Promise<ContactUs> {
+    try {
+      const result = await db.insert(contactUs).values(data);
+      const [newRecord] = await db.select().from(contactUs).where(eq(contactUs.id, result[0].insertId));
+      return newRecord;
+    } catch (error) {
+      console.error("Error creating contact us:", error);
+      throw error;
+    }
+  }
+
+  async getContactUs(groupId?: number): Promise<ContactUs[]> {
+    try {
+      let query = db.select().from(contactUs);
+      if (groupId !== undefined) {
+        query = query.where(eq(contactUs.groupId, groupId));
+      }
+      return await query;
+    } catch (error) {
+      console.error("Error fetching contact us:", error);
+      throw error;
+    }
+  }
+
+  async updateContactUs(id: number, data: Partial<InsertContactUs>): Promise<ContactUs | null> {
+    try {
+      await db.update(contactUs).set(data).where(eq(contactUs.id, id));
+      const [updated] = await db.select().from(contactUs).where(eq(contactUs.id, id));
+      return updated || null;
+    } catch (error) {
+      console.error("Error updating contact us:", error);
+      throw error;
+    }
+  }
+
+  async deleteContactUs(id: number): Promise<boolean> {
+    try {
+      const result = await db.delete(contactUs).where(eq(contactUs.id, id));
+      return result[0].affectedRows > 0;
+    } catch (error) {
+      console.error("Error deleting contact us:", error);
+      throw error;
+    }
+  }
+
+  // Social Links Management
+  async createSocialLink(data: InsertSocialLink): Promise<SocialLink> {
+    try {
+      const result = await db.insert(socialLinks).values(data);
+      const [newRecord] = await db.select().from(socialLinks).where(eq(socialLinks.id, result[0].insertId));
+      return newRecord;
+    } catch (error) {
+      console.error("Error creating social link:", error);
+      throw error;
+    }
+  }
+
+  async getSocialLinks(groupId?: number): Promise<SocialLink[]> {
+    try {
+      let query = db.select().from(socialLinks);
+      if (groupId !== undefined) {
+        query = query.where(eq(socialLinks.groupId, groupId));
+      }
+      return await query;
+    } catch (error) {
+      console.error("Error fetching social links:", error);
+      throw error;
+    }
+  }
+
+  async updateSocialLink(id: number, data: Partial<InsertSocialLink>): Promise<SocialLink | null> {
+    try {
+      await db.update(socialLinks).set(data).where(eq(socialLinks.id, id));
+      const [updated] = await db.select().from(socialLinks).where(eq(socialLinks.id, id));
+      return updated || null;
+    } catch (error) {
+      console.error("Error updating social link:", error);
+      throw error;
+    }
+  }
+
+  async deleteSocialLink(id: number): Promise<boolean> {
+    try {
+      const result = await db.delete(socialLinks).where(eq(socialLinks.id, id));
+      return result[0].affectedRows > 0;
+    } catch (error) {
+      console.error("Error deleting social link:", error);
+      throw error;
+    }
+  }
+
+  // Support System - Feedback Management
+  async createFeedback(data: InsertFeedbackSuggestion): Promise<FeedbackSuggestion> {
+    try {
+      const result = await db.insert(feedbackSuggestions).values(data);
+      const [newRecord] = await db.select().from(feedbackSuggestions).where(eq(feedbackSuggestions.id, result[0].insertId));
+      return newRecord;
+    } catch (error) {
+      console.error("Error creating feedback:", error);
+      throw error;
+    }
+  }
+
+  async getFeedbacks(userId?: number): Promise<FeedbackSuggestion[]> {
+    try {
+      let query = db.select().from(feedbackSuggestions);
+      if (userId) {
+        query = query.where(eq(feedbackSuggestions.userId, userId));
+      }
+      return await query;
+    } catch (error) {
+      console.error("Error fetching feedbacks:", error);
+      throw error;
+    }
+  }
+
+  async updateFeedback(id: number, data: Partial<InsertFeedbackSuggestion>): Promise<FeedbackSuggestion | null> {
+    try {
+      await db.update(feedbackSuggestions).set(data).where(eq(feedbackSuggestions.id, id));
+      const [updated] = await db.select().from(feedbackSuggestions).where(eq(feedbackSuggestions.id, id));
+      return updated || null;
+    } catch (error) {
+      console.error("Error updating feedback:", error);
+      throw error;
+    }
+  }
+
+  async deleteFeedback(id: number): Promise<boolean> {
+    try {
+      const result = await db.delete(feedbackSuggestions).where(eq(feedbackSuggestions.id, id));
+      return result[0].affectedRows > 0;
+    } catch (error) {
+      console.error("Error deleting feedback:", error);
+      throw error;
+    }
+  }
+
+  // Application Forms Management
+  async getFranchiseApplications(): Promise<any[]> {
+    try {
+      return await db.select().from(franchiseApplications).orderBy(franchiseApplications.submittedAt);
+    } catch (error) {
+      console.error("Error fetching franchise applications:", error);
+      throw error;
+    }
+  }
+
+  async getJobApplications(): Promise<any[]> {
+    try {
+      return await db.select().from(jobApplications).orderBy(jobApplications.submittedAt);
+    } catch (error) {
+      console.error("Error fetching job applications:", error);
+      throw error;
+    }
+  }
+
+  async getEnquiryForms(): Promise<any[]> {
+    try {
+      return await db.select().from(enquiryForms).orderBy(enquiryForms.submittedAt);
+    } catch (error) {
+      console.error("Error fetching enquiry forms:", error);
+      throw error;
+    }
+  }
+
+  async updateApplicationStatus(table: string, id: number, status: string): Promise<boolean> {
+    try {
+      let query;
+      switch (table) {
+        case 'franchise_applications':
+          query = db.update(franchiseApplications).set({ status }).where(eq(franchiseApplications.id, id));
+          break;
+        case 'job_applications':
+          query = db.update(jobApplications).set({ status }).where(eq(jobApplications.id, id));
+          break;
+        case 'enquiry_forms':
+          query = db.update(enquiryForms).set({ status }).where(eq(enquiryForms.id, id));
+          break;
+        default:
+          throw new Error(`Unknown table: ${table}`);
+      }
+
+      const result = await query;
+      return result[0].affectedRows > 0;
+    } catch (error) {
+      console.error("Error updating application status:", error);
       throw error;
     }
   }
