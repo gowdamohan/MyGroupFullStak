@@ -2,8 +2,10 @@ export interface AppItem {
   id: string;
   name: string;
   icon: string;
-  category: 'default' | 'gaming' | 'social';
+  category: 'communication' | 'entertainment' | 'productivity' | 'social' | 'business' | 'media';
   description?: string;
+  route?: string;
+  color?: string;
 }
 
 export interface CarouselImage {

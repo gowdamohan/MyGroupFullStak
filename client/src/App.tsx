@@ -12,12 +12,23 @@ import Home from "@/pages/home";
 import LoginPage from "@/pages/login";
 import AdminLoginPage from "@/pages/admin-login";
 import AdminDashboardPage from "@/pages/admin-dashboard";
+
+// New authentication pages
+import NewLoginPage from "./pages/LoginPage";
+import NewRegisterPage from "./pages/RegisterPage";
+import NewDashboardPage from "./pages/DashboardPage";
 import AdminDashboard from "@/pages/dashboard/admin";
 import CorporateDashboard from "@/pages/dashboard/corporate";
 import RegionalDashboard from "@/pages/dashboard/regional";
 import BranchDashboard from "@/pages/dashboard/branch";
 import HeadOfficeDashboard from "@/pages/dashboard/head-office";
 import NotFound from "@/pages/not-found";
+
+// Lazy load app components
+const MyTVApp = lazy(() => import("@/pages/apps/MyTVApp"));
+const MyChatApp = lazy(() => import("@/pages/apps/MyChatApp"));
+const MyMediaApp = lazy(() => import("@/pages/apps/MyMediaApp"));
+const MyUnionsApp = lazy(() => import("@/pages/apps/MyUnionsApp"));
 
 // Lazy load corporate sub-pages
 const CorporateHeadOfficeLogin = lazy(() => import("@/pages/dashboard/corporate/head-office-login"));
@@ -64,6 +75,14 @@ function Router() {
           return null;
         }}
       </Route>
+
+      {/* New Authentication Routes */}
+      <Route path="/new-login" component={NewLoginPage} />
+      <Route path="/client-login/:groupName" component={NewLoginPage} />
+      <Route path="/register" component={NewRegisterPage} />
+      <Route path="/register-form/:groupName" component={NewRegisterPage} />
+      <Route path="/god-register-form/:groupName/:appName" component={NewRegisterPage} />
+      <Route path="/dashboard" component={NewDashboardPage} />
       <Route path="/admin/login" component={AdminLoginPage} />
       <Route path="/admin/dashboard">
         <AdminRoute>
@@ -216,6 +235,29 @@ function Router() {
       <Route path="/dashboard/regional" component={RegionalDashboard} />
       <Route path="/dashboard/branch" component={BranchDashboard} />
       <Route path="/dashboard/head-office" component={HeadOfficeDashboard} />
+
+      {/* App Routes */}
+      <Route path="/app/mytv">
+        <Suspense fallback={<div className="text-center p-5"><div className="spinner-border"></div></div>}>
+          <MyTVApp />
+        </Suspense>
+      </Route>
+      <Route path="/app/mychat">
+        <Suspense fallback={<div className="text-center p-5"><div className="spinner-border"></div></div>}>
+          <MyChatApp />
+        </Suspense>
+      </Route>
+      <Route path="/app/mymedia">
+        <Suspense fallback={<div className="text-center p-5"><div className="spinner-border"></div></div>}>
+          <MyMediaApp />
+        </Suspense>
+      </Route>
+      <Route path="/app/myunions">
+        <Suspense fallback={<div className="text-center p-5"><div className="spinner-border"></div></div>}>
+          <MyUnionsApp />
+        </Suspense>
+      </Route>
+
       <Route component={NotFound} />
     </Switch>
   );

@@ -620,6 +620,99 @@ export const copyRights = mysqlTable("copy_rights", {
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
 });
 
+// Additional tables from PHP implementation
+
+// Advertisement table (aderttise)
+export const aderttise = mysqlTable("aderttise", {
+  id: int("id").primaryKey().autoincrement(),
+  createId: int("create_id"),
+  ads1: varchar("ads1", { length: 500 }),
+  ads2: varchar("ads2", { length: 500 }),
+  ads3: varchar("ads3", { length: 500 }),
+  ads1Url: varchar("ads1_url", { length: 500 }),
+  ads2Url: varchar("ads2_url", { length: 500 }),
+  ads3Url: varchar("ads3_url", { length: 500 }),
+  sideAds: varchar("side_ads", { length: 500 }),
+  popupImage: varchar("popup_image", { length: 500 }),
+  popupTitle: varchar("popup_title", { length: 255 }),
+  popupContent: text("popup_content"),
+  isActive: tinyint("is_active").default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
+// Main ads table
+export const mainAds = mysqlTable("main_ads", {
+  id: int("id").primaryKey().autoincrement(),
+  ads1: varchar("ads1", { length: 500 }),
+  ads2: varchar("ads2", { length: 500 }),
+  ads3: varchar("ads3", { length: 500 }),
+  ads1Url: varchar("ads1_url", { length: 500 }),
+  ads2Url: varchar("ads2_url", { length: 500 }),
+  ads3Url: varchar("ads3_url", { length: 500 }),
+  isActive: tinyint("is_active").default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
+// My apps about details table
+export const myApsAboutDetails = mysqlTable("my_aps_about_details", {
+  id: int("id").primaryKey().autoincrement(),
+  groupName: varchar("group_name", { length: 255 }),
+  appName: varchar("app_name", { length: 255 }),
+  title: varchar("title", { length: 255 }),
+  content: text("content"),
+  image: varchar("image", { length: 500 }),
+  tagLine: varchar("tag_line", { length: 255 }),
+  isActive: tinyint("is_active").default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
+// Education table
+export const education = mysqlTable("education", {
+  id: int("id").primaryKey().autoincrement(),
+  name: varchar("name", { length: 100 }).notNull(),
+  code: varchar("code", { length: 10 }),
+  isActive: tinyint("is_active").default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
+// Profession table
+export const profession = mysqlTable("profession", {
+  id: int("id").primaryKey().autoincrement(),
+  name: varchar("name", { length: 100 }).notNull(),
+  code: varchar("code", { length: 10 }),
+  category: varchar("category", { length: 100 }),
+  isActive: tinyint("is_active").default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
+// App categories table for organizing apps
+export const appCategories = mysqlTable("app_categories", {
+  id: int("id").primaryKey().autoincrement(),
+  name: varchar("name", { length: 100 }).notNull(), // myapps, myCompany, online, offline
+  displayName: varchar("display_name", { length: 100 }),
+  description: text("description"),
+  icon: varchar("icon", { length: 255 }),
+  orderBy: int("order_by").default(0),
+  isActive: tinyint("is_active").default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
+// App category mapping table
+export const appCategoryMapping = mysqlTable("app_category_mapping", {
+  id: int("id").primaryKey().autoincrement(),
+  appId: int("app_id").notNull(), // references group_create.id
+  categoryId: int("category_id").notNull(), // references app_categories.id
+  orderBy: int("order_by").default(0),
+  isActive: tinyint("is_active").default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Corporate feature schemas
 export const corporateUserSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -694,6 +787,71 @@ export const feedbackSchema = z.object({
   rating: z.number().min(1).max(5).optional(),
 });
 
+// Additional schemas for new tables
+export const aderttiseSchema = z.object({
+  createId: z.number().min(1, "Create ID is required"),
+  ads1: z.string().optional(),
+  ads2: z.string().optional(),
+  ads3: z.string().optional(),
+  ads1Url: z.string().optional(),
+  ads2Url: z.string().optional(),
+  ads3Url: z.string().optional(),
+  sideAds: z.string().optional(),
+  popupImage: z.string().optional(),
+  popupTitle: z.string().optional(),
+  popupContent: z.string().optional(),
+  isActive: z.number().default(1),
+});
+
+export const mainAdsSchema = z.object({
+  ads1: z.string().optional(),
+  ads2: z.string().optional(),
+  ads3: z.string().optional(),
+  ads1Url: z.string().optional(),
+  ads2Url: z.string().optional(),
+  ads3Url: z.string().optional(),
+  isActive: z.number().default(1),
+});
+
+export const myApsAboutDetailsSchema = z.object({
+  groupName: z.string().min(1, "Group name is required"),
+  appName: z.string().min(1, "App name is required"),
+  title: z.string().min(1, "Title is required"),
+  content: z.string().min(1, "Content is required"),
+  image: z.string().optional(),
+  tagLine: z.string().optional(),
+  isActive: z.number().default(1),
+});
+
+export const educationSchema = z.object({
+  name: z.string().min(1, "Education name is required"),
+  code: z.string().optional(),
+  isActive: z.number().default(1),
+});
+
+export const professionSchema = z.object({
+  name: z.string().min(1, "Profession name is required"),
+  code: z.string().optional(),
+  category: z.string().optional(),
+  isActive: z.number().default(1),
+});
+
+export const appCategorySchema = z.object({
+  name: z.string().min(1, "Category name is required"),
+  displayName: z.string().optional(),
+  description: z.string().optional(),
+  icon: z.string().optional(),
+  orderBy: z.number().default(0),
+  isActive: z.number().default(1),
+});
+
+export const appCategoryMappingSchema = z.object({
+  appId: z.number().min(1, "App ID is required"),
+  categoryId: z.number().min(1, "Category ID is required"),
+  orderBy: z.number().default(0),
+  isActive: z.number().default(1),
+});
+
 // Type exports for corporate features
 export type FranchiseHolder = typeof franchiseHolder.$inferSelect;
 export type InsertFranchiseHolder = typeof franchiseHolder.$inferInsert;
@@ -717,3 +875,28 @@ export type SocialLink = typeof socialLinks.$inferSelect;
 export type InsertSocialLink = typeof socialLinks.$inferInsert;
 export type FeedbackSuggestion = typeof feedbackSuggestions.$inferSelect;
 export type InsertFeedbackSuggestion = typeof feedbackSuggestions.$inferInsert;
+
+// Additional type exports for new tables
+export type Aderttise = typeof aderttise.$inferSelect;
+export type InsertAderttise = typeof aderttise.$inferInsert;
+export type MainAds = typeof mainAds.$inferSelect;
+export type InsertMainAds = typeof mainAds.$inferInsert;
+export type MyApsAboutDetails = typeof myApsAboutDetails.$inferSelect;
+export type InsertMyApsAboutDetails = typeof myApsAboutDetails.$inferInsert;
+export type Education = typeof education.$inferSelect;
+export type InsertEducation = typeof education.$inferInsert;
+export type Profession = typeof profession.$inferSelect;
+export type InsertProfession = typeof profession.$inferInsert;
+export type AppCategory = typeof appCategories.$inferSelect;
+export type InsertAppCategory = typeof appCategories.$inferInsert;
+export type AppCategoryMapping = typeof appCategoryMapping.$inferSelect;
+export type InsertAppCategoryMapping = typeof appCategoryMapping.$inferInsert;
+
+// Input type exports for new schemas
+export type AderttiseInput = z.infer<typeof aderttiseSchema>;
+export type MainAdsInput = z.infer<typeof mainAdsSchema>;
+export type MyApsAboutDetailsInput = z.infer<typeof myApsAboutDetailsSchema>;
+export type EducationInput = z.infer<typeof educationSchema>;
+export type ProfessionInput = z.infer<typeof professionSchema>;
+export type AppCategoryInput = z.infer<typeof appCategorySchema>;
+export type AppCategoryMappingInput = z.infer<typeof appCategoryMappingSchema>;

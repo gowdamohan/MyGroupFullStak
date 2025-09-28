@@ -1006,6 +1006,806 @@ export class MySQLStorage implements IMySQLStorage {
     }
   }
 
+  // ===== ADDITIONAL USER METHODS =====
+  // Additional methods for user management
+
+  async authenticateClientUser(identity: string, password: string, groupName: string): Promise<string | number | false> {
+    try {
+      // First try standard authentication
+      const user = await this.authenticateUser(identity, password);
+      if (user) {
+        return 'success';
+      }
+
+      // Check if user exists but needs group-specific handling
+      const query = `
+        SELECT u.id, u.group_id, gc.name as group_name, gp.name as userGroup
+        FROM users u
+        JOIN group_create gc ON u.group_id = gc.id
+        JOIN users_groups ug ON u.id = ug.user_id
+        JOIN groups gp ON ug.group_id = gp.id
+        WHERE (u.email = ? OR u.username = ?) AND gc.name = ?
+        LIMIT 1
+      `;
+
+      const [rows] = await this.pool.execute(query, [identity, identity, groupName]);
+      const users = rows as any[];
+
+      if (users.length > 0) {
+        return users[0].id; // Return user ID for registration completion
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Error authenticating client user:', error);
+      throw error;
+    }
+  }
+
+  async getUserByIdentity(identity: string): Promise<any> {
+    try {
+      const query = `
+        SELECT * FROM users
+        WHERE email = ? OR username = ?
+        LIMIT 1
+      `;
+
+      const [rows] = await this.pool.execute(query, [identity, identity]);
+      const users = rows as any[];
+
+      return users.length > 0 ? users[0] : null;
+    } catch (error) {
+      console.error('Error getting user by identity:', error);
+      throw error;
+    }
+  }
+
+  async getUserByEmailAndGroup(email: string, groupId: number): Promise<any> {
+    try {
+      const query = `
+        SELECT * FROM users
+        WHERE email = ? AND group_id = ?
+        LIMIT 1
+      `;
+
+      const [rows] = await this.pool.execute(query, [email, groupId]);
+      const users = rows as any[];
+
+      return users.length > 0 ? users[0] : null;
+    } catch (error) {
+      console.error('Error getting user by email and group:', error);
+      throw error;
+    }
+  }
+
+  async getUserByEmailOrUsername(email: string, username: string): Promise<any> {
+    try {
+      const query = `
+        SELECT * FROM users
+        WHERE email = ? OR username = ?
+        LIMIT 1
+      `;
+
+      const [rows] = await this.pool.execute(query, [email, username]);
+      const users = rows as any[];
+
+      return users.length > 0 ? users[0] : null;
+    } catch (error) {
+      console.error('Error getting user by email or username:', error);
+      throw error;
+    }
+  }
+
+  async getUserByUsername(username: string): Promise<any> {
+    try {
+      const query = `
+        SELECT * FROM users
+        WHERE username = ?
+        LIMIT 1
+      `;
+
+      const [rows] = await this.pool.execute(query, [username]);
+      const users = rows as any[];
+
+      return users.length > 0 ? users[0] : null;
+    } catch (error) {
+      console.error('Error getting user by username:', error);
+      throw error;
+    }
+  }
+
+  async createUser(userData: any): Promise<number | false> {
+    try {
+      // Hash password
+      const bcrypt = require('bcrypt');
+      const hashedPassword = await bcrypt.hash(userData.password, 10);
+
+      const query = `
+        INSERT INTO users (
+          first_name, last_name, email, username, password,
+          phone, company, group_id, active, created_on
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `;
+
+      const values = [
+        userData.first_name,
+        userData.last_name,
+        userData.email,
+        userData.username,
+        hashedPassword,
+        userData.phone,
+        userData.company,
+        userData.group_id,
+        userData.active,
+        userData.created_on
+      ];
+
+      const [result] = await this.pool.execute(query, values);
+      const insertResult = result as any;
+
+      return insertResult.insertId || false;
+    } catch (error) {
+      console.error('Error creating user:', error);
+      throw error;
+    }
+  }
+
+  async updateLastLogin(userId: number): Promise<boolean> {
+    try {
+      const query = `
+        UPDATE users
+        SET last_login = NOW()
+        WHERE id = ?
+      `;
+
+      const [result] = await this.pool.execute(query, [userId]);
+      const updateResult = result as any;
+
+      return updateResult.affectedRows > 0;
+    } catch (error) {
+      console.error('Error updating last login:', error);
+      throw error;
+    }
+  }
+
+  async addUserToGroup(userId: number, groupId: number): Promise<boolean> {
+    try {
+      const query = `
+        INSERT INTO users_groups (user_id, group_id)
+        VALUES (?, ?)
+        ON DUPLICATE KEY UPDATE user_id = user_id
+      `;
+
+      const [result] = await this.pool.execute(query, [userId, groupId]);
+      const insertResult = result as any;
+
+      return insertResult.affectedRows > 0;
+    } catch (error) {
+      console.error('Error adding user to group:', error);
+      throw error;
+    }
+  }
+
+  async getUserById(userId: number): Promise<any> {
+    try {
+      const query = `
+        SELECT u.*,
+               GROUP_CONCAT(CONCAT(g.id, ':', g.name, ':', g.description) SEPARATOR '|') as groups
+        FROM users u
+        LEFT JOIN users_groups ug ON u.id = ug.user_id
+        LEFT JOIN groups g ON ug.group_id = g.id
+        WHERE u.id = ?
+        GROUP BY u.id
+        LIMIT 1
+      `;
+
+      const [rows] = await this.pool.execute(query, [userId]);
+      const users = rows as any[];
+
+      if (users.length === 0) {
+        return null;
+      }
+
+      const user = users[0];
+
+      // Parse groups
+      if (user.groups) {
+        user.groups = user.groups.split('|').map((group: string) => {
+          const [id, name, description] = group.split(':');
+          return { id: parseInt(id), name, description };
+        });
+      } else {
+        user.groups = [];
+      }
+
+      return user;
+    } catch (error) {
+      console.error('Error getting user by ID:', error);
+      throw error;
+    }
+  }
+
+  async updateUser(userId: number, userData: any): Promise<boolean> {
+    try {
+      const fields = [];
+      const values = [];
+
+      if (userData.first_name !== undefined) {
+        fields.push('first_name = ?');
+        values.push(userData.first_name);
+      }
+
+      if (userData.last_name !== undefined) {
+        fields.push('last_name = ?');
+        values.push(userData.last_name);
+      }
+
+      if (userData.email !== undefined) {
+        fields.push('email = ?');
+        values.push(userData.email);
+      }
+
+      if (userData.username !== undefined) {
+        fields.push('username = ?');
+        values.push(userData.username);
+      }
+
+      if (userData.phone !== undefined) {
+        fields.push('phone = ?');
+        values.push(userData.phone);
+      }
+
+      if (userData.company !== undefined) {
+        fields.push('company = ?');
+        values.push(userData.company);
+      }
+
+      if (userData.active !== undefined) {
+        fields.push('active = ?');
+        values.push(userData.active);
+      }
+
+      if (fields.length === 0) {
+        return false; // No fields to update
+      }
+
+      fields.push('modified_on = NOW()');
+      values.push(userId);
+
+      const query = `
+        UPDATE users
+        SET ${fields.join(', ')}
+        WHERE id = ?
+      `;
+
+      const [result] = await this.pool.execute(query, values);
+      const updateResult = result as any;
+
+      return updateResult.affectedRows > 0;
+    } catch (error) {
+      console.error('Error updating user:', error);
+      throw error;
+    }
+  }
+
+  async getAllUsers(): Promise<any[]> {
+    try {
+      const query = `
+        SELECT u.id, u.email, u.username, u.first_name, u.last_name,
+               u.phone, u.company, u.active, u.group_id, u.last_login,
+               u.created_on, u.modified_on,
+               GROUP_CONCAT(CONCAT(g.id, ':', g.name, ':', g.description) SEPARATOR '|') as groups
+        FROM users u
+        LEFT JOIN users_groups ug ON u.id = ug.user_id
+        LEFT JOIN groups g ON ug.group_id = g.id
+        GROUP BY u.id
+        ORDER BY u.created_on DESC
+      `;
+
+      const [rows] = await this.pool.execute(query);
+      const users = rows as any[];
+
+      // Parse groups for each user
+      return users.map(user => {
+        if (user.groups) {
+          user.groups = user.groups.split('|').map((group: string) => {
+            const [id, name, description] = group.split(':');
+            return { id: parseInt(id), name, description };
+          });
+        } else {
+          user.groups = [];
+        }
+        return user;
+      });
+    } catch (error) {
+      console.error('Error getting all users:', error);
+      throw error;
+    }
+  }
+
+  async isUserInGroup(userId: number, groupName: string): Promise<boolean> {
+    try {
+      const query = `
+        SELECT COUNT(*) as count
+        FROM users_groups ug
+        JOIN groups g ON ug.group_id = g.id
+        WHERE ug.user_id = ? AND g.name = ?
+      `;
+
+      const [rows] = await this.pool.execute(query, [userId, groupName]);
+      const result = rows as any[];
+
+      return result[0].count > 0;
+    } catch (error) {
+      console.error('Error checking user group membership:', error);
+      throw error;
+    }
+  }
+
+  async deleteUser(userId: number): Promise<boolean> {
+    try {
+      // First delete from users_groups
+      await this.pool.execute('DELETE FROM users_groups WHERE user_id = ?', [userId]);
+
+      // Then delete the user
+      const query = `DELETE FROM users WHERE id = ?`;
+      const [result] = await this.pool.execute(query, [userId]);
+      const deleteResult = result as any;
+
+      return deleteResult.affectedRows > 0;
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      throw error;
+    }
+  }
+
+  async removeUserFromGroup(userId: number, groupId: number): Promise<boolean> {
+    try {
+      const query = `
+        DELETE FROM users_groups
+        WHERE user_id = ? AND group_id = ?
+      `;
+
+      const [result] = await this.pool.execute(query, [userId, groupId]);
+      const deleteResult = result as any;
+
+      return deleteResult.affectedRows > 0;
+    } catch (error) {
+      console.error('Error removing user from group:', error);
+      throw error;
+    }
+  }
+
+  async getUserGroups(userId: number): Promise<any[]> {
+    try {
+      const query = `
+        SELECT g.id, g.name, g.description
+        FROM groups g
+        JOIN users_groups ug ON g.id = ug.group_id
+        WHERE ug.user_id = ?
+        ORDER BY g.name
+      `;
+
+      const [rows] = await this.pool.execute(query, [userId]);
+      return rows as any[];
+    } catch (error) {
+      console.error('Error getting user groups:', error);
+      throw error;
+    }
+  }
+
+  async getAllGroups(): Promise<any[]> {
+    try {
+      const query = `
+        SELECT id, name, description, created_on
+        FROM groups
+        ORDER BY name
+      `;
+
+      const [rows] = await this.pool.execute(query);
+      return rows as any[];
+    } catch (error) {
+      console.error('Error getting all groups:', error);
+      throw error;
+    }
+  }
+
+  // ===== OTP METHODS =====
+  // Methods for OTP generation, verification, and management
+
+  async storeRegistrationOTP(email: string, otp: number): Promise<boolean> {
+    try {
+      const query = `
+        INSERT INTO otp_verification (email, otp, type, created_at, expires_at)
+        VALUES (?, ?, 'registration', NOW(), DATE_ADD(NOW(), INTERVAL 10 MINUTE))
+        ON DUPLICATE KEY UPDATE
+        otp = VALUES(otp),
+        created_at = VALUES(created_at),
+        expires_at = VALUES(expires_at)
+      `;
+
+      const [result] = await this.pool.execute(query, [email, otp]);
+      const insertResult = result as any;
+
+      return insertResult.affectedRows > 0;
+    } catch (error) {
+      console.error('Error storing registration OTP:', error);
+      throw error;
+    }
+  }
+
+  async verifyRegistrationOTP(email: string, otp: number): Promise<any> {
+    try {
+      const query = `
+        SELECT * FROM otp_verification
+        WHERE email = ? AND otp = ? AND type = 'registration'
+        AND expires_at > NOW()
+        LIMIT 1
+      `;
+
+      const [rows] = await this.pool.execute(query, [email, otp]);
+      const otpRecords = rows as any[];
+
+      if (otpRecords.length > 0) {
+        // Mark as verified
+        const updateQuery = `
+          UPDATE otp_verification
+          SET verified = 1, verified_at = NOW()
+          WHERE id = ?
+        `;
+        await this.pool.execute(updateQuery, [otpRecords[0].id]);
+
+        return otpRecords[0];
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error verifying registration OTP:', error);
+      throw error;
+    }
+  }
+
+  async storePasswordRecoveryOTP(username: string, otp: number): Promise<boolean> {
+    try {
+      const query = `
+        INSERT INTO otp_verification (email, otp, type, created_at, expires_at)
+        VALUES (?, ?, 'password_recovery', NOW(), DATE_ADD(NOW(), INTERVAL 10 MINUTE))
+        ON DUPLICATE KEY UPDATE
+        otp = VALUES(otp),
+        created_at = VALUES(created_at),
+        expires_at = VALUES(expires_at)
+      `;
+
+      const [result] = await this.pool.execute(query, [username, otp]);
+      const insertResult = result as any;
+
+      return insertResult.affectedRows > 0;
+    } catch (error) {
+      console.error('Error storing password recovery OTP:', error);
+      throw error;
+    }
+  }
+
+  async verifyPasswordRecoveryOTP(username: string, otp: number): Promise<any> {
+    try {
+      const query = `
+        SELECT * FROM otp_verification
+        WHERE email = ? AND otp = ? AND type = 'password_recovery'
+        AND expires_at > NOW()
+        LIMIT 1
+      `;
+
+      const [rows] = await this.pool.execute(query, [username, otp]);
+      const otpRecords = rows as any[];
+
+      if (otpRecords.length > 0) {
+        // Mark as verified
+        const updateQuery = `
+          UPDATE otp_verification
+          SET verified = 1, verified_at = NOW()
+          WHERE id = ?
+        `;
+        await this.pool.execute(updateQuery, [otpRecords[0].id]);
+
+        return otpRecords[0];
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error verifying password recovery OTP:', error);
+      throw error;
+    }
+  }
+
+  async checkOTPValidation(otpId: number): Promise<boolean> {
+    try {
+      const query = `
+        SELECT verified FROM otp_verification
+        WHERE id = ? AND verified = 1
+        LIMIT 1
+      `;
+
+      const [rows] = await this.pool.execute(query, [otpId]);
+      const otpRecords = rows as any[];
+
+      return otpRecords.length > 0;
+    } catch (error) {
+      console.error('Error checking OTP validation:', error);
+      throw error;
+    }
+  }
+
+  async deleteOTPRecord(otpId: number): Promise<boolean> {
+    try {
+      const query = `DELETE FROM otp_verification WHERE id = ?`;
+      const [result] = await this.pool.execute(query, [otpId]);
+      const deleteResult = result as any;
+
+      return deleteResult.affectedRows > 0;
+    } catch (error) {
+      console.error('Error deleting OTP record:', error);
+      throw error;
+    }
+  }
+
+  async deletePasswordRecoveryOTP(username: string): Promise<boolean> {
+    try {
+      const query = `
+        DELETE FROM otp_verification
+        WHERE email = ? AND type = 'password_recovery'
+      `;
+      const [result] = await this.pool.execute(query, [username]);
+      const deleteResult = result as any;
+
+      return deleteResult.affectedRows > 0;
+    } catch (error) {
+      console.error('Error deleting password recovery OTP:', error);
+      throw error;
+    }
+  }
+
+  async updateUserPassword(userId: number, newPassword: string): Promise<boolean> {
+    try {
+      // Hash password
+      const bcrypt = require('bcrypt');
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      const query = `
+        UPDATE users
+        SET password = ?, modified_on = NOW()
+        WHERE id = ?
+      `;
+
+      const [result] = await this.pool.execute(query, [hashedPassword, userId]);
+      const updateResult = result as any;
+
+      return updateResult.affectedRows > 0;
+    } catch (error) {
+      console.error('Error updating user password:', error);
+      throw error;
+    }
+  }
+
+  async sendOTPEmail(email: string, message: string, subject: string): Promise<boolean> {
+    try {
+      // This is a placeholder for email sending functionality
+      // In a real implementation, you would integrate with an email service like:
+      // - SendGrid
+      // - AWS SES
+      // - Nodemailer with SMTP
+
+      console.log(`Sending email to ${email}:`);
+      console.log(`Subject: ${subject}`);
+      console.log(`Message: ${message}`);
+
+      // For now, return true to simulate successful email sending
+      // In production, replace this with actual email sending logic
+      return true;
+    } catch (error) {
+      console.error('Error sending OTP email:', error);
+      return false;
+    }
+  }
+
+  async getUserInfoForRegistration(userId: number): Promise<any> {
+    try {
+      const query = `
+        SELECT u.id, u.group_id, gc.name as group_name, gp.name as userGroup
+        FROM users u
+        JOIN group_create gc ON u.group_id = gc.id
+        JOIN users_groups ug ON u.id = ug.user_id
+        JOIN groups gp ON ug.group_id = gp.id
+        WHERE u.id = ?
+        LIMIT 1
+      `;
+
+      const [rows] = await this.pool.execute(query, [userId]);
+      const users = rows as any[];
+
+      return users.length > 0 ? users[0] : null;
+    } catch (error) {
+      console.error('Error getting user info for registration:', error);
+      throw error;
+    }
+  }
+
+  // Mobile Header Methods (equivalent to PHP Home_model methods)
+  async getMyGroupsApps(appsName: string): Promise<any[]> {
+    try {
+      const query = `
+        SELECT
+          gc.id as apps_id,
+          gc.name,
+          cd.icon,
+          cd.id as icon_id
+        FROM group_create gc
+        LEFT JOIN create_details cd ON gc.id = cd.create_id
+        WHERE gc.apps_name = ?
+        ORDER BY gc.id
+      `;
+
+      const [rows] = await connection.execute(query, [appsName]);
+      return rows as any[];
+    } catch (error) {
+      console.error("Error fetching my groups apps:", error);
+      throw error;
+    }
+  }
+
+  async getAllMyGroupsApps(): Promise<any> {
+    try {
+      const query = `
+        SELECT
+          gc.id,
+          gc.apps_name,
+          gc.name,
+          cd.icon,
+          cd.url
+        FROM group_create gc
+        LEFT JOIN create_details cd ON gc.id = cd.create_id
+        ORDER BY gc.id
+      `;
+
+      const [rows] = await connection.execute(query);
+      const result = rows as any[];
+
+      // Group by apps_name like in PHP
+      const totalApps: any = {};
+      result.forEach((app) => {
+        if (!totalApps[app.apps_name]) {
+          totalApps[app.apps_name] = [];
+        }
+        totalApps[app.apps_name].push(app);
+      });
+
+      return totalApps;
+    } catch (error) {
+      console.error("Error fetching all mygroups apps:", error);
+      throw error;
+    }
+  }
+
+  async getHeaderAds(mainApp?: string, subApp?: string): Promise<any[]> {
+    try {
+      // This is a simplified version - you may need to adjust based on your ads table structure
+      let query = `
+        SELECT
+          id,
+          ads1 as image_path,
+          image_url,
+          title,
+          description
+        FROM aderttise
+        WHERE 1=1
+      `;
+
+      const params: any[] = [];
+
+      if (mainApp) {
+        query += ` AND (main_app = ? OR main_app IS NULL)`;
+        params.push(mainApp);
+      }
+
+      if (subApp) {
+        query += ` AND (sub_app = ? OR sub_app IS NULL)`;
+        params.push(subApp);
+      }
+
+      query += ` ORDER BY id LIMIT 10`;
+
+      const [rows] = await connection.execute(query, params);
+      const ads = rows as any[];
+
+      // Add full image path like in PHP
+      return ads.map(ad => ({
+        ...ad,
+        img: ad.image_path ? `/uploads/${ad.image_path}` : null
+      }));
+    } catch (error) {
+      console.error("Error fetching header ads:", error);
+      throw error;
+    }
+  }
+
+  async updateUserPreference(userId: number, preference: string, value: any): Promise<boolean> {
+    try {
+      // Check if user preferences table exists, if not create a simple session storage approach
+      const query = `
+        INSERT INTO user_preferences (user_id, preference_key, preference_value, updated_at)
+        VALUES (?, ?, ?, NOW())
+        ON DUPLICATE KEY UPDATE
+        preference_value = VALUES(preference_value),
+        updated_at = NOW()
+      `;
+
+      await connection.execute(query, [userId, preference, JSON.stringify(value)]);
+      return true;
+    } catch (error) {
+      console.error("Error updating user preference:", error);
+      // If table doesn't exist, just return true for now
+      return true;
+    }
+  }
+
+  async getLocationWiseUserData(userId: number): Promise<any> {
+    try {
+      // Get user's location
+      const userQuery = `
+        SELECT country, state, district
+        FROM users
+        WHERE id = ?
+      `;
+
+      const [userRows] = await connection.execute(userQuery, [userId]);
+      const user = (userRows as any[])[0];
+
+      if (!user) {
+        throw new Error("User not found");
+      }
+
+      // Get global count
+      const globalQuery = `SELECT COUNT(*) as count FROM users WHERE active = 1`;
+      const [globalRows] = await connection.execute(globalQuery);
+      const globalCount = (globalRows as any[])[0].count;
+
+      // Get national count
+      const nationalQuery = `SELECT COUNT(*) as count FROM users WHERE country = ? AND active = 1`;
+      const [nationalRows] = await connection.execute(nationalQuery, [user.country]);
+      const nationalCount = (nationalRows as any[])[0].count;
+
+      // Get regional count
+      const regionalQuery = `SELECT COUNT(*) as count FROM users WHERE country = ? AND state = ? AND active = 1`;
+      const [regionalRows] = await connection.execute(regionalQuery, [user.country, user.state]);
+      const regionalCount = (regionalRows as any[])[0].count;
+
+      // Get local count
+      const localQuery = `SELECT COUNT(*) as count FROM users WHERE country = ? AND state = ? AND district = ? AND active = 1`;
+      const [localRows] = await connection.execute(localQuery, [user.country, user.state, user.district]);
+      const localCount = (localRows as any[])[0].count;
+
+      return {
+        global: {
+          globalCount: globalCount
+        },
+        national: {
+          natioanlCount: nationalCount,
+          country: user.country
+        },
+        regional: {
+          regionalCount: regionalCount,
+          state: user.state
+        },
+        local: {
+          localCount: localCount,
+          district: user.district
+        }
+      };
+    } catch (error) {
+      console.error("Error fetching location wise data:", error);
+      throw error;
+    }
+  }
+
   async getAppWithDetails(id: number): Promise<any> {
     try {
       const query = `
@@ -1030,6 +1830,261 @@ export class MySQLStorage implements IMySQLStorage {
       return (rows as any[])[0] || null;
     } catch (error) {
       console.error("Error fetching app with details:", error);
+      throw error;
+    }
+  }
+
+  // App Categories Methods
+  async getAllAppCategories(): Promise<any[]> {
+    try {
+      const query = `
+        SELECT * FROM app_categories
+        WHERE is_active = 1
+        ORDER BY order_by ASC, name ASC
+      `;
+      const [rows] = await connection.execute(query);
+      return rows as any[];
+    } catch (error) {
+      console.error("Error fetching app categories:", error);
+      throw error;
+    }
+  }
+
+  async getAppsByCategory(categoryName: string): Promise<any[]> {
+    try {
+      const query = `
+        SELECT
+          gc.id,
+          gc.name,
+          gc.apps_name,
+          gc.order_by,
+          gc.code,
+          cd.icon,
+          cd.logo,
+          cd.name_image,
+          cd.background_color,
+          cd.banner,
+          cd.url,
+          ac.name as category_name,
+          ac.display_name as category_display_name
+        FROM group_create gc
+        LEFT JOIN create_details cd ON gc.id = cd.create_id
+        LEFT JOIN app_category_mapping acm ON gc.id = acm.app_id
+        LEFT JOIN app_categories ac ON acm.category_id = ac.id
+        WHERE ac.name = ? AND ac.is_active = 1 AND acm.is_active = 1
+        ORDER BY acm.order_by ASC, gc.order_by ASC, gc.name ASC
+      `;
+      const [rows] = await connection.execute(query, [categoryName]);
+      return rows as any[];
+    } catch (error) {
+      console.error("Error fetching apps by category:", error);
+      throw error;
+    }
+  }
+
+  async getAllAppsWithCategories(): Promise<any[]> {
+    try {
+      const query = `
+        SELECT
+          gc.id,
+          gc.name,
+          gc.apps_name,
+          gc.order_by,
+          gc.code,
+          cd.icon,
+          cd.logo,
+          cd.name_image,
+          cd.background_color,
+          cd.banner,
+          cd.url,
+          ac.name as category_name,
+          ac.display_name as category_display_name,
+          acm.order_by as category_order
+        FROM group_create gc
+        LEFT JOIN create_details cd ON gc.id = cd.create_id
+        LEFT JOIN app_category_mapping acm ON gc.id = acm.app_id
+        LEFT JOIN app_categories ac ON acm.category_id = ac.id
+        WHERE (ac.is_active = 1 OR ac.id IS NULL) AND (acm.is_active = 1 OR acm.id IS NULL)
+        ORDER BY ac.order_by ASC, acm.order_by ASC, gc.order_by ASC, gc.name ASC
+      `;
+      const [rows] = await connection.execute(query);
+      return rows as any[];
+    } catch (error) {
+      console.error("Error fetching apps with categories:", error);
+      throw error;
+    }
+  }
+
+  async getAppById(id: number): Promise<any> {
+    try {
+      const query = `
+        SELECT
+          gc.id,
+          gc.name,
+          gc.apps_name,
+          gc.order_by,
+          gc.code,
+          cd.icon,
+          cd.logo,
+          cd.name_image,
+          cd.background_color,
+          cd.banner,
+          cd.url
+        FROM group_create gc
+        LEFT JOIN create_details cd ON gc.id = cd.create_id
+        WHERE gc.id = ?
+      `;
+      const [rows] = await connection.execute(query, [id]);
+      const result = rows as any[];
+      return result[0] || null;
+    } catch (error) {
+      console.error("Error fetching app by ID:", error);
+      throw error;
+    }
+  }
+
+  async searchApps(query: string): Promise<any[]> {
+    try {
+      const searchQuery = `
+        SELECT
+          gc.id,
+          gc.name,
+          gc.apps_name,
+          gc.order_by,
+          gc.code,
+          cd.icon,
+          cd.logo,
+          cd.name_image,
+          cd.background_color,
+          cd.banner,
+          cd.url
+        FROM group_create gc
+        LEFT JOIN create_details cd ON gc.id = cd.create_id
+        WHERE gc.name LIKE ? OR gc.apps_name LIKE ?
+        ORDER BY gc.order_by ASC, gc.name ASC
+      `;
+      const searchTerm = `%${query}%`;
+      const [rows] = await connection.execute(searchQuery, [searchTerm, searchTerm]);
+      return rows as any[];
+    } catch (error) {
+      console.error("Error searching apps:", error);
+      throw error;
+    }
+  }
+
+  // Seed app categories and mappings
+  async seedAppCategoriesAndMappings(): Promise<void> {
+    try {
+      console.log("🌱 Seeding app categories and mappings...");
+
+      // Create default app categories
+      const categories = [
+        { name: 'myapps', display_name: 'My Apps', description: 'Personal applications', icon: 'bi-person-circle', order_by: 1 },
+        { name: 'myCompany', display_name: 'My Company', description: 'Company applications', icon: 'bi-building', order_by: 2 },
+        { name: 'online', display_name: 'Online', description: 'Online applications', icon: 'bi-wifi', order_by: 3 },
+        { name: 'offline', display_name: 'Offline', description: 'Offline applications', icon: 'bi-wifi-off', order_by: 4 }
+      ];
+
+      for (const category of categories) {
+        // Check if category already exists
+        const [existingRows] = await connection.execute(
+          'SELECT id FROM app_categories WHERE name = ?',
+          [category.name]
+        );
+
+        if ((existingRows as any[]).length === 0) {
+          await connection.execute(
+            'INSERT INTO app_categories (name, display_name, description, icon, order_by, is_active) VALUES (?, ?, ?, ?, ?, 1)',
+            [category.name, category.display_name, category.description, category.icon, category.order_by]
+          );
+          console.log(`✅ Created app category: ${category.display_name}`);
+        }
+      }
+
+      // Get category IDs
+      const [categoryRows] = await connection.execute('SELECT id, name FROM app_categories');
+      const categoryMap = new Map();
+      (categoryRows as any[]).forEach(row => {
+        categoryMap.set(row.name, row.id);
+      });
+
+      // Create sample apps if they don't exist
+      const sampleApps = [
+        { name: 'MyChat', apps_name: 'MyChat', order_by: 1, code: 'CHAT' },
+        { name: 'MyTV', apps_name: 'MyTV', order_by: 2, code: 'TV' },
+        { name: 'MyMedia', apps_name: 'MyMedia', order_by: 3, code: 'MEDIA' },
+        { name: 'MyUnions', apps_name: 'MyUnions', order_by: 4, code: 'UNIONS' },
+        { name: 'MyDairy', apps_name: 'MyDairy', order_by: 5, code: 'DAIRY' },
+        { name: 'MyNeedy', apps_name: 'MyNeedy', order_by: 6, code: 'NEEDY' },
+        { name: 'MyJoy', apps_name: 'MyJoy', order_by: 7, code: 'JOY' },
+        { name: 'MyGo', apps_name: 'MyGo', order_by: 8, code: 'GO' },
+        { name: 'MyFin', apps_name: 'MyFin', order_by: 9, code: 'FIN' },
+        { name: 'MyShop', apps_name: 'MyShop', order_by: 10, code: 'SHOP' },
+        { name: 'MyFriend', apps_name: 'MyFriend', order_by: 11, code: 'FRIEND' },
+        { name: 'MyBiz', apps_name: 'MyBiz', order_by: 12, code: 'BIZ' }
+      ];
+
+      for (const app of sampleApps) {
+        // Check if app already exists
+        const [existingAppRows] = await connection.execute(
+          'SELECT id FROM group_create WHERE apps_name = ?',
+          [app.apps_name]
+        );
+
+        if ((existingAppRows as any[]).length === 0) {
+          const [result] = await connection.execute(
+            'INSERT INTO group_create (name, apps_name, order_by, code) VALUES (?, ?, ?, ?)',
+            [app.name, app.apps_name, app.order_by, app.code]
+          );
+
+          const appId = (result as any).insertId;
+
+          // Create app details
+          const appIcons = {
+            'MyChat': 'bi-chat-dots',
+            'MyTV': 'bi-tv',
+            'MyMedia': 'bi-camera-video',
+            'MyUnions': 'bi-people',
+            'MyDairy': 'bi-journal-text',
+            'MyNeedy': 'bi-heart',
+            'MyJoy': 'bi-emoji-smile',
+            'MyGo': 'bi-geo-alt',
+            'MyFin': 'bi-currency-dollar',
+            'MyShop': 'bi-shop',
+            'MyFriend': 'bi-person-hearts',
+            'MyBiz': 'bi-briefcase'
+          };
+
+          await connection.execute(
+            'INSERT INTO create_details (create_id, icon, background_color, url) VALUES (?, ?, ?, ?)',
+            [appId, appIcons[app.name] || 'bi-app', '#f8f9fa', `/app/${app.apps_name.toLowerCase()}`]
+          );
+
+          // Map apps to categories
+          let categoryName = 'myapps'; // default category
+          if (['MyBiz', 'MyFin', 'MyShop'].includes(app.name)) {
+            categoryName = 'myCompany';
+          } else if (['MyChat', 'MyTV', 'MyMedia'].includes(app.name)) {
+            categoryName = 'online';
+          } else if (['MyDairy', 'MyNeedy'].includes(app.name)) {
+            categoryName = 'offline';
+          }
+
+          const categoryId = categoryMap.get(categoryName);
+          if (categoryId) {
+            await connection.execute(
+              'INSERT INTO app_category_mapping (app_id, category_id, order_by, is_active) VALUES (?, ?, ?, 1)',
+              [appId, categoryId, app.order_by]
+            );
+          }
+
+          console.log(`✅ Created app: ${app.name} in category: ${categoryName}`);
+        }
+      }
+
+      console.log("🌱 App categories and mappings seeded successfully");
+    } catch (error) {
+      console.error("Error seeding app categories and mappings:", error);
       throw error;
     }
   }
@@ -2826,6 +3881,252 @@ export class MySQLStorage implements IMySQLStorage {
     } catch (error) {
       console.error("Error updating application status:", error);
       throw error;
+    }
+  }
+
+  // Advertisement Methods - using main_ads table like PHP version
+  async getAllAdvertisements(): Promise<any[]> {
+    try {
+      const query = `
+        SELECT * FROM main_ads
+        ORDER BY id DESC
+      `;
+      const [rows] = await connection.execute(query);
+      return rows as any[];
+    } catch (error) {
+      console.error("Error fetching main ads:", error);
+      // Return empty array if table doesn't exist or other error
+      return [];
+    }
+  }
+
+  // Get about us data
+  async getAboutUsData(groupId: number = 0): Promise<any[]> {
+    try {
+      const query = `
+        SELECT * FROM about
+        WHERE group_id = ?
+        ORDER BY id DESC
+      `;
+      const [rows] = await connection.execute(query, [groupId]);
+      return rows as any[];
+    } catch (error) {
+      console.error("Error fetching about us data:", error);
+      return [];
+    }
+  }
+
+  // Get testimonials data
+  async getTestimonialsData(): Promise<any[]> {
+    try {
+      const query = `
+        SELECT * FROM testimonials
+        ORDER BY id DESC
+        LIMIT 4
+      `;
+      const [rows] = await connection.execute(query);
+      return rows as any[];
+    } catch (error) {
+      console.error("Error fetching testimonials:", error);
+      return [];
+    }
+  }
+
+  async getAdvertisementById(id: number): Promise<any> {
+    try {
+      const query = `
+        SELECT * FROM aderttise
+        WHERE id = ? AND is_active = 1
+      `;
+      const [rows] = await connection.execute(query, [id]);
+      const result = rows as any[];
+      return result[0] || null;
+    } catch (error) {
+      console.error("Error fetching advertisement by ID:", error);
+      return null;
+    }
+  }
+
+  async createAdvertisement(data: any): Promise<number> {
+    try {
+      const query = `
+        INSERT INTO aderttise (
+          create_id, ads1, ads2, ads3, ads1_url, ads2_url, ads3_url,
+          side_ads, popup_image, popup_title, popup_content, is_active
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `;
+      const [result] = await connection.execute(query, [
+        data.create_id || null,
+        data.ads1 || null,
+        data.ads2 || null,
+        data.ads3 || null,
+        data.ads1_url || null,
+        data.ads2_url || null,
+        data.ads3_url || null,
+        data.side_ads || null,
+        data.popup_image || null,
+        data.popup_title || null,
+        data.popup_content || null,
+        data.is_active || 1
+      ]);
+      return (result as any).insertId;
+    } catch (error) {
+      console.error("Error creating advertisement:", error);
+      throw error;
+    }
+  }
+
+  async updateAdvertisement(id: number, data: any): Promise<boolean> {
+    try {
+      const query = `
+        UPDATE aderttise SET
+          ads1 = ?, ads2 = ?, ads3 = ?, ads1_url = ?, ads2_url = ?, ads3_url = ?,
+          side_ads = ?, popup_image = ?, popup_title = ?, popup_content = ?, is_active = ?
+        WHERE id = ?
+      `;
+      const [result] = await connection.execute(query, [
+        data.ads1 || null,
+        data.ads2 || null,
+        data.ads3 || null,
+        data.ads1_url || null,
+        data.ads2_url || null,
+        data.ads3_url || null,
+        data.side_ads || null,
+        data.popup_image || null,
+        data.popup_title || null,
+        data.popup_content || null,
+        data.is_active || 1,
+        id
+      ]);
+      return (result as any).affectedRows > 0;
+    } catch (error) {
+      console.error("Error updating advertisement:", error);
+      throw error;
+    }
+  }
+
+  async deleteAdvertisement(id: number): Promise<boolean> {
+    try {
+      const query = `UPDATE aderttise SET is_active = 0 WHERE id = ?`;
+      const [result] = await connection.execute(query, [id]);
+      return (result as any).affectedRows > 0;
+    } catch (error) {
+      console.error("Error deleting advertisement:", error);
+      throw error;
+    }
+  }
+
+  async getUserProfileForEdit(userId: number): Promise<any> {
+    try {
+      const query = `
+        SELECT
+          u.id as user_id,
+          u.username,
+          u.email,
+          u.first_name,
+          u.last_name,
+          u.phone,
+          u.profile_img,
+          u.display_name,
+          u.country,
+          u.state,
+          u.district,
+          u.education,
+          u.profession,
+          u.gender,
+          u.marital_status as marital,
+          u.date_of_birth,
+          u.nationality,
+          IFNULL(u.alter_number, '') as alter_number,
+          DAY(u.date_of_birth) as dob_date,
+          MONTH(u.date_of_birth) as dob_month,
+          YEAR(u.date_of_birth) as dob_year
+        FROM users u
+        WHERE u.id = ?
+      `;
+
+      const [rows] = await connection.execute(query, [userId]);
+      return (rows as any[])[0];
+    } catch (error) {
+      console.error("Error fetching user profile for edit:", error);
+      throw error;
+    }
+  }
+
+  async getCountryFlags(): Promise<any[]> {
+    try {
+      const query = `
+        SELECT
+          id,
+          country,
+          nationality,
+          flag_icon,
+          country_code
+        FROM countries
+        ORDER BY country
+      `;
+
+      const [rows] = await connection.execute(query);
+      return rows as any[];
+    } catch (error) {
+      console.error("Error fetching country flags:", error);
+      // Return empty array if table doesn't exist
+      return [];
+    }
+  }
+
+  async getEducationList(): Promise<any[]> {
+    try {
+      const query = `
+        SELECT
+          id,
+          education,
+          description
+        FROM education
+        WHERE is_active = 1
+        ORDER BY education
+      `;
+
+      const [rows] = await connection.execute(query);
+      return rows as any[];
+    } catch (error) {
+      console.error("Error fetching education list:", error);
+      // Return default education options if table doesn't exist
+      return [
+        { id: 1, education: 'High School' },
+        { id: 2, education: 'Bachelor\'s Degree' },
+        { id: 3, education: 'Master\'s Degree' },
+        { id: 4, education: 'PhD' },
+        { id: 5, education: 'Other' }
+      ];
+    }
+  }
+
+  async getProfessionList(): Promise<any[]> {
+    try {
+      const query = `
+        SELECT
+          id,
+          profession,
+          description
+        FROM profession
+        WHERE is_active = 1
+        ORDER BY profession
+      `;
+
+      const [rows] = await connection.execute(query);
+      return rows as any[];
+    } catch (error) {
+      console.error("Error fetching profession list:", error);
+      // Return default profession options if table doesn't exist
+      return [
+        { id: 1, profession: 'Software Engineer' },
+        { id: 2, profession: 'Teacher' },
+        { id: 3, profession: 'Doctor' },
+        { id: 4, profession: 'Business Owner' },
+        { id: 5, profession: 'Student' },
+        { id: 6, profession: 'Other' }
+      ];
     }
   }
 }

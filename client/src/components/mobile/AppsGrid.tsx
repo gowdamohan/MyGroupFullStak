@@ -1,24 +1,24 @@
 import React from "react";
+import { useLocation } from "wouter";
 import type { AppItem } from "@/lib/types";
-
-const defaultApps: AppItem[] = [
-  { id: '1', name: 'Developer', icon: 'bi-journal-code', category: 'default' },
-  { id: '2', name: 'Gaming', icon: 'bi-controller', category: 'gaming' },
-  { id: '3', name: 'Social', icon: 'bi-people', category: 'social' },
-  { id: '4', name: 'Photo', icon: 'bi-camera', category: 'default' },
-  { id: '5', name: 'Music', icon: 'bi-music-note', category: 'gaming' },
-  { id: '6', name: 'Shopping', icon: 'bi-cart', category: 'social' },
-];
+import { APPS_CONFIG } from "@/config/apps";
 
 interface AppsGridProps {
   apps?: AppItem[];
   onAppClick?: (app: AppItem) => void;
+  showAll?: boolean;
 }
 
-export default function AppsGrid({ apps = defaultApps, onAppClick }: AppsGridProps) {
+export default function AppsGrid({ apps = APPS_CONFIG, onAppClick, showAll = false }: AppsGridProps) {
+  const [, setLocation] = useLocation();
+
+  const displayApps = showAll ? apps : apps.slice(0, 12);
+
   const handleAppClick = (app: AppItem) => {
     if (onAppClick) {
       onAppClick(app);
+    } else if (app.route) {
+      setLocation(app.route);
     } else {
       console.log(`Opening app: ${app.name}`);
     }
@@ -27,14 +27,21 @@ export default function AppsGrid({ apps = defaultApps, onAppClick }: AppsGridPro
   return (
     <div className="apps-grid">
       <div className="row g-3">
-        {apps.map((app) => (
+        {displayApps.map((app) => (
           <div key={app.id} className="col-4">
-            <div 
+            <div
               className={`app-card ${app.category}`}
               onClick={() => handleAppClick(app)}
               data-testid={`card-app-${app.id}`}
+              style={{
+                background: app.color ? `linear-gradient(135deg, ${app.color}20, ${app.color}40)` : undefined,
+                borderColor: app.color || undefined
+              }}
             >
-              <i className={`${app.icon} app-icon`} />
+              <i
+                className={`${app.icon} app-icon`}
+                style={{ color: app.color || undefined }}
+              />
               <p className="app-title">{app.name}</p>
             </div>
           </div>

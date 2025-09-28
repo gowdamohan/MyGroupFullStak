@@ -3,17 +3,25 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import MobileHeader from "@/components/mobile/MobileHeader";
 import AppsGrid from "@/components/mobile/AppsGrid";
-import AdsCarousel from "@/components/mobile/AdsCarousel";
+import AdvertisementCarousel from "@/components/mobile/AdvertisementCarousel";
+import TestimonialsSection from "@/components/mobile/TestimonialsSection";
 import WelcomeSection from "@/components/mobile/WelcomeSection";
 import BottomNavigation from "@/components/mobile/BottomNavigation";
 import LoginModal from "@/components/modals/LoginModal";
 import RegistrationModal from "@/components/modals/RegistrationModal";
+import UserProfileModal from "@/components/modals/UserProfileModal";
+import type { AppItem } from "@/lib/types";
 
 export default function Home() {
   const [, setLocation] = useLocation();
   const { isAuthenticated } = useAuth();
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showRegistrationModal, setShowRegistrationModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Use searchQuery to avoid unused variable warning
+  console.log('Current search query:', searchQuery);
 
   // Initialize demo users on component mount
   useEffect(() => {
@@ -23,13 +31,13 @@ export default function Home() {
       .catch(err => console.error('Failed to initialize demo users:', err));
   }, []);
 
-  // Auto-show login modal for non-authenticated users
+  // Auto-show login modal for non-authenticated users immediately
   useEffect(() => {
     if (!isAuthenticated) {
       const timer = setTimeout(() => {
         setShowLoginModal(true);
-      }, 2000);
-      
+      }, 500); // Show modal after 500ms for better UX
+
       return () => clearTimeout(timer);
     }
   }, [isAuthenticated]);
@@ -52,17 +60,32 @@ export default function Home() {
     setTimeout(() => setShowLoginModal(true), 300);
   };
 
+  const handleAppSelect = (app: AppItem) => {
+    console.log(`Selected app: ${app.name}`);
+    if (app.route) {
+      setLocation(app.route);
+    }
+  };
+
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    console.log(`Searching for: ${query}`);
+  };
+
   return (
     <div className="mobile-container">
-      <MobileHeader 
-        onProfileClick={() => console.log("Profile clicked")}
-        onSearch={(query: string) => console.log("Search:", query)}
+      <MobileHeader
+        onProfileClick={() => setShowProfileModal(true)}
+        onSearch={handleSearch}
+        onAppSelect={handleAppSelect}
       />
+
+      <AppsGrid onAppClick={handleAppSelect} />
       
-      <AppsGrid />
-      
-      <AdsCarousel />
-      
+      <AdvertisementCarousel className="mb-4" />
+
+      <TestimonialsSection className="mb-4" />
+
       {!isAuthenticated && (
         <WelcomeSection onGetStarted={() => setShowLoginModal(true)} />
       )}
@@ -83,6 +106,11 @@ export default function Home() {
         onClose={() => setShowRegistrationModal(false)}
         onRegistration={handleRegistration}
         onSwitchToLogin={switchToLogin}
+      />
+
+      <UserProfileModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
       />
     </div>
   );

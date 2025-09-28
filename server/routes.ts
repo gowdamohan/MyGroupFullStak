@@ -2,8 +2,10 @@ import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { z } from "zod";
 import jwt from "jsonwebtoken";
+import bcrypt from "bcrypt";
 import path from "path";
 import fs from "fs";
+import multer from "multer";
 import { storage } from "./storage";
 import { mysqlStorage } from "./mysql-storage";
 import {
@@ -23,6 +25,28 @@ import {
 
 // JWT Secret - In production, this should be in environment variables
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production';
+
+// Uploads directory setup
+const uploadsDir = path.join(process.cwd(), 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Multer configuration for file uploads
+const upload = multer({
+  dest: uploadsDir,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    // Allow only image files
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'));
+    }
+  },
+});
 
 // Extend Express Request type to include session and user
 declare module 'express-session' {
@@ -167,6 +191,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   } catch (error) {
     console.error("❌ Error seeding groups and users:", error);
     console.log("🔄 Continuing with in-memory storage fallback...");
+  }
+
+  // Initialize app categories and mappings
+  try {
+    await mysqlStorage.seedAppCategoriesAndMappings();
+    console.log("✅ App categories and mappings seeded successfully");
+  } catch (error) {
+    console.error("❌ Error seeding app categories and mappings:", error);
+    console.log("🔄 Continuing without app categories...");
   }
 
   // Test route
@@ -2837,6 +2870,1270 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting award:", error);
       res.status(500).json({ error: "Failed to delete award" });
+    }
+  });
+
+  // ===== APP NAVIGATION AND CATEGORIES API ROUTES =====
+
+  // Get all app categories
+  app.get("/api/app-categories", async (req, res) => {
+    try {
+      const categories = await mysqlStorage.getAllAppCategories();
+      res.json(categories);
+    } catch (error) {
+      console.error("Error fetching app categories:", error);
+      res.status(500).json({ error: "Failed to fetch app categories" });
+    }
+  });
+
+  // ===== ADVERTISEMENT API ROUTES =====
+
+  // Get all advertisements (main_ads)
+  app.get("/api/advertisements", async (req, res) => {
+    try {
+      const advertisements = await mysqlStorage.getAllAdvertisements();
+      res.json(advertisements);
+    } catch (error) {
+      console.error("Error fetching advertisements:", error);
+      res.status(500).json({ error: "Failed to fetch advertisements" });
+    }
+  });
+
+  // Get about us data
+  app.get("/api/about-us", async (req, res) => {
+    try {
+      const groupId = parseInt(req.query.groupId as string) || 0;
+      const aboutUs = await mysqlStorage.getAboutUsData(groupId);
+      res.json(aboutUs);
+    } catch (error) {
+      console.error("Error fetching about us data:", error);
+      res.status(500).json({ error: "Failed to fetch about us data" });
+    }
+  });
+
+  // Get testimonials data
+  app.get("/api/testimonials", async (req, res) => {
+    try {
+      const testimonials = await mysqlStorage.getTestimonialsData();
+      res.json(testimonials);
+    } catch (error) {
+      console.error("Error fetching testimonials:", error);
+      res.status(500).json({ error: "Failed to fetch testimonials" });
+    }
+  });
+
+  // Get apps by category
+  app.get("/api/apps/by-category/:categoryName", async (req, res) => {
+    try {
+      const categoryName = req.params.categoryName;
+      const apps = await mysqlStorage.getAppsByCategory(categoryName);
+      res.json(apps);
+    } catch (error) {
+      console.error("Error fetching apps by category:", error);
+      res.status(500).json({ error: "Failed to fetch apps by category" });
+    }
+  });
+
+  // Get all apps with their categories
+  app.get("/api/apps/with-categories", async (req, res) => {
+    try {
+      const appsWithCategories = await mysqlStorage.getAllAppsWithCategories();
+      res.json(appsWithCategories);
+    } catch (error) {
+      console.error("Error fetching apps with categories:", error);
+      res.status(500).json({ error: "Failed to fetch apps with categories" });
+    }
+  });
+
+  // Get app details by ID
+  app.get("/api/apps/:id", async (req, res) => {
+    try {
+      const appId = parseInt(req.params.id);
+      const app = await mysqlStorage.getAppById(appId);
+
+      if (!app) {
+        return res.status(404).json({ error: "App not found" });
+      }
+
+      res.json(app);
+    } catch (error) {
+      console.error("Error fetching app details:", error);
+      res.status(500).json({ error: "Failed to fetch app details" });
+    }
+  });
+
+  // Search apps
+  app.get("/api/apps/search", async (req, res) => {
+    try {
+      const query = req.query.q as string;
+      if (!query) {
+        return res.status(400).json({ error: "Search query is required" });
+      }
+
+      const apps = await mysqlStorage.searchApps(query);
+      res.json(apps);
+    } catch (error) {
+      console.error("Error searching apps:", error);
+      res.status(500).json({ error: "Failed to search apps" });
+    }
+  });
+
+  // ===== USER PROFILE API ROUTES =====
+
+  // Get user profile
+  app.get("/api/user/profile", authenticateJWT, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const user = await mysqlStorage.getUserById(userId);
+
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Remove sensitive information
+      const { password, salt, activationCode, forgottenPasswordCode, rememberCode, ...userProfile } = user;
+      res.json(userProfile);
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // ===== AUTHENTICATION API ROUTES =====
+  // Authentication endpoints matching PHP functionality
+
+  // Login endpoint
+  app.post('/api/auth/login', async (req, res) => {
+    try {
+      const { identity, password, remember = false } = req.body;
+
+      if (!identity || !password) {
+        return res.status(400).json({
+          error: 'Identity and password are required',
+          success: false
+        });
+      }
+
+      // Authenticate user
+      const user = await mysqlStorage.authenticateUser(identity, password);
+
+      if (!user) {
+        return res.status(401).json({
+          error: 'Invalid credentials',
+          success: false
+        });
+      }
+
+      if (!user.active) {
+        return res.status(401).json({
+          error: 'Account is not active',
+          success: false
+        });
+      }
+
+      // Generate JWT token
+      const token = jwt.sign(
+        {
+          userId: user.id,
+          email: user.email,
+          username: user.username,
+          groupId: user.group_id
+        },
+        JWT_SECRET,
+        { expiresIn: remember ? '30d' : '24h' }
+      );
+
+      // Update last login
+      await mysqlStorage.updateLastLogin(user.id);
+
+      // Set session data
+      req.session.userId = user.id;
+      req.session.userEmail = user.email;
+      req.session.isLoggedIn = true;
+
+      res.json({
+        success: true,
+        message: 'Login successful',
+        token,
+        user: {
+          id: user.id,
+          email: user.email,
+          username: user.username,
+          firstName: user.first_name,
+          lastName: user.last_name,
+          groupId: user.group_id,
+          groups: user.groups || []
+        }
+      });
+
+    } catch (error) {
+      console.error('Login error:', error);
+      res.status(500).json({
+        error: 'Internal server error',
+        success: false
+      });
+    }
+  });
+
+  // Client login endpoint (group-specific)
+  app.post('/api/auth/client-login/:groupName', async (req, res) => {
+    try {
+      const { identity, password, remember = false } = req.body;
+      const { groupName } = req.params;
+
+      if (!identity || !password) {
+        return res.status(400).json({
+          error: 'Identity and password are required',
+          success: false
+        });
+      }
+
+      // Authenticate user for specific group
+      const result = await mysqlStorage.authenticateClientUser(identity, password, groupName);
+
+      if (result === 'success') {
+        // Standard successful login
+        const user = await mysqlStorage.getUserByIdentity(identity);
+        const token = jwt.sign(
+          {
+            userId: user.id,
+            email: user.email,
+            username: user.username,
+            groupId: user.group_id
+          },
+          JWT_SECRET,
+          { expiresIn: remember ? '30d' : '24h' }
+        );
+
+        req.session.userId = user.id;
+        req.session.userEmail = user.email;
+        req.session.isLoggedIn = true;
+
+        return res.json({
+          success: true,
+          message: 'Login successful',
+          token,
+          user: {
+            id: user.id,
+            email: user.email,
+            username: user.username,
+            firstName: user.first_name,
+            lastName: user.last_name,
+            groupId: user.group_id
+          }
+        });
+      } else if (result && typeof result === 'number') {
+        // User needs to complete registration
+        const userInfo = await mysqlStorage.getUserInfoForRegistration(result);
+        return res.json({
+          success: false,
+          requiresRegistration: true,
+          redirectUrl: `/client-form/${userInfo.group_name}/${userInfo.group_id}/${userInfo.id}/${userInfo.userGroup}`,
+          userInfo
+        });
+      } else {
+        return res.status(401).json({
+          error: 'Invalid credentials',
+          success: false
+        });
+      }
+
+    } catch (error) {
+      console.error('Client login error:', error);
+      res.status(500).json({
+        error: 'Internal server error',
+        success: false
+      });
+    }
+  });
+
+  // Register with OTP endpoint
+  app.post('/api/auth/register-with-otp', async (req, res) => {
+    try {
+      const { emailId, group_id } = req.body;
+
+      if (!emailId || !group_id) {
+        return res.status(400).json({
+          error: 'Email and group ID are required',
+          success: false
+        });
+      }
+
+      // Check if user already exists
+      const existingUser = await mysqlStorage.getUserByEmailAndGroup(emailId, group_id);
+      if (existingUser) {
+        return res.status(409).json({
+          error: 'User already exists',
+          success: false
+        });
+      }
+
+      // Generate OTP
+      const otp = Math.floor(100000 + Math.random() * 900000); // 6-digit OTP
+      const message = `This is your one-time password: ${otp}`;
+
+      // Store or update OTP
+      await mysqlStorage.storeRegistrationOTP(emailId, otp);
+
+      // Send OTP email
+      const emailSent = await mysqlStorage.sendOTPEmail(emailId, message, 'Register One Time Password');
+
+      if (emailSent) {
+        res.json({
+          success: true,
+          message: 'OTP sent successfully',
+          email: emailId
+        });
+      } else {
+        res.status(500).json({
+          error: 'Failed to send OTP',
+          success: false
+        });
+      }
+
+    } catch (error) {
+      console.error('Register OTP error:', error);
+      res.status(500).json({
+        error: 'Internal server error',
+        success: false
+      });
+    }
+  });
+
+  // Verify registration OTP
+  app.post('/api/auth/verify-registration-otp', async (req, res) => {
+    try {
+      const { emailId, otp } = req.body;
+
+      if (!emailId || !otp) {
+        return res.status(400).json({
+          error: 'Email and OTP are required',
+          success: false
+        });
+      }
+
+      const otpRecord = await mysqlStorage.verifyRegistrationOTP(emailId, otp);
+
+      if (otpRecord) {
+        res.json({
+          success: true,
+          message: 'OTP verified successfully',
+          otpId: otpRecord.id
+        });
+      } else {
+        res.status(400).json({
+          error: 'Invalid or expired OTP',
+          success: false
+        });
+      }
+
+    } catch (error) {
+      console.error('Verify OTP error:', error);
+      res.status(500).json({
+        error: 'Internal server error',
+        success: false
+      });
+    }
+  });
+
+  // Complete user registration
+  app.post('/api/auth/register', async (req, res) => {
+    try {
+      const {
+        firstName,
+        lastName,
+        email,
+        username,
+        password,
+        phone,
+        company,
+        groupId,
+        otpId
+      } = req.body;
+
+      // Validate required fields
+      if (!firstName || !lastName || !email || !username || !password) {
+        return res.status(400).json({
+          error: 'All required fields must be provided',
+          success: false
+        });
+      }
+
+      // Verify OTP was validated
+      if (otpId) {
+        const otpValid = await mysqlStorage.checkOTPValidation(otpId);
+        if (!otpValid) {
+          return res.status(400).json({
+            error: 'OTP verification required',
+            success: false
+          });
+        }
+      }
+
+      // Check if user already exists
+      const existingUser = await mysqlStorage.getUserByEmailOrUsername(email, username);
+      if (existingUser) {
+        return res.status(409).json({
+          error: 'User already exists with this email or username',
+          success: false
+        });
+      }
+
+      // Create user
+      const userData = {
+        first_name: firstName,
+        last_name: lastName,
+        email,
+        username,
+        password, // Will be hashed in the storage method
+        phone: phone || null,
+        company: company || null,
+        group_id: groupId || 1,
+        active: 1,
+        created_on: new Date()
+      };
+
+      const userId = await mysqlStorage.createUser(userData);
+
+      if (userId) {
+        // Add user to default group
+        await mysqlStorage.addUserToGroup(userId, 2); // Default user group
+
+        // Clean up OTP record
+        if (otpId) {
+          await mysqlStorage.deleteOTPRecord(otpId);
+        }
+
+        res.json({
+          success: true,
+          message: 'User registered successfully',
+          userId
+        });
+      } else {
+        res.status(500).json({
+          error: 'Failed to create user',
+          success: false
+        });
+      }
+
+    } catch (error) {
+      console.error('Registration error:', error);
+      res.status(500).json({
+        error: 'Internal server error',
+        success: false
+      });
+    }
+  });
+
+  // Forgot password - send OTP
+  app.post('/api/auth/forgot-password', async (req, res) => {
+    try {
+      const { identity } = req.body; // Can be email or username
+
+      if (!identity) {
+        return res.status(400).json({
+          error: 'Email or username is required',
+          success: false
+        });
+      }
+
+      // Find user by email or username
+      const user = await mysqlStorage.getUserByIdentity(identity);
+      if (!user) {
+        return res.status(404).json({
+          error: 'User not found',
+          success: false
+        });
+      }
+
+      // Generate OTP
+      const otp = Math.floor(1000 + Math.random() * 9000); // 4-digit OTP for password reset
+      const message = `This is your one-time password: ${otp}`;
+
+      // Store OTP for password recovery
+      await mysqlStorage.storePasswordRecoveryOTP(user.username, otp);
+
+      // Send OTP email
+      const emailSent = await mysqlStorage.sendOTPEmail(user.email || user.username, message, 'Forgot Password One Time Password');
+
+      if (emailSent) {
+        res.json({
+          success: true,
+          message: 'OTP sent successfully',
+          username: user.username
+        });
+      } else {
+        res.status(500).json({
+          error: 'Failed to send OTP',
+          success: false
+        });
+      }
+
+    } catch (error) {
+      console.error('Forgot password error:', error);
+      res.status(500).json({
+        error: 'Internal server error',
+        success: false
+      });
+    }
+  });
+
+  // Verify forgot password OTP
+  app.post('/api/auth/verify-forgot-password-otp', async (req, res) => {
+    try {
+      const { username, otp } = req.body;
+
+      if (!username || !otp) {
+        return res.status(400).json({
+          error: 'Username and OTP are required',
+          success: false
+        });
+      }
+
+      const otpRecord = await mysqlStorage.verifyPasswordRecoveryOTP(username, otp);
+
+      if (otpRecord) {
+        res.json({
+          success: true,
+          message: 'OTP verified successfully',
+          recoveryId: otpRecord.id
+        });
+      } else {
+        res.status(400).json({
+          error: 'Invalid or expired OTP',
+          success: false
+        });
+      }
+
+    } catch (error) {
+      console.error('Verify forgot password OTP error:', error);
+      res.status(500).json({
+        error: 'Internal server error',
+        success: false
+      });
+    }
+  });
+
+  // Reset password
+  app.post('/api/auth/reset-password', async (req, res) => {
+    try {
+      const { username, newPassword, otpCode } = req.body;
+
+      if (!username || !newPassword || !otpCode) {
+        return res.status(400).json({
+          error: 'Username, new password, and OTP are required',
+          success: false
+        });
+      }
+
+      // Verify OTP one more time
+      const otpValid = await mysqlStorage.verifyPasswordRecoveryOTP(username, otpCode);
+      if (!otpValid) {
+        return res.status(400).json({
+          error: 'Invalid or expired OTP',
+          success: false
+        });
+      }
+
+      // Update password
+      const user = await mysqlStorage.getUserByUsername(username);
+      if (!user) {
+        return res.status(404).json({
+          error: 'User not found',
+          success: false
+        });
+      }
+
+      const passwordUpdated = await mysqlStorage.updateUserPassword(user.id, newPassword);
+
+      if (passwordUpdated) {
+        // Clean up OTP record
+        await mysqlStorage.deletePasswordRecoveryOTP(username);
+
+        res.json({
+          success: true,
+          message: 'Password reset successfully'
+        });
+      } else {
+        res.status(500).json({
+          error: 'Failed to reset password',
+          success: false
+        });
+      }
+
+    } catch (error) {
+      console.error('Reset password error:', error);
+      res.status(500).json({
+        error: 'Internal server error',
+        success: false
+      });
+    }
+  });
+
+  // Logout endpoint
+  app.post('/api/auth/logout', (req, res) => {
+    try {
+      req.session.destroy((err) => {
+        if (err) {
+          console.error('Logout error:', err);
+          return res.status(500).json({
+            error: 'Failed to logout',
+            success: false
+          });
+        }
+
+        res.clearCookie('connect.sid');
+        res.json({
+          success: true,
+          message: 'Logged out successfully'
+        });
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+      res.status(500).json({
+        error: 'Internal server error',
+        success: false
+      });
+    }
+  });
+
+  // ===== USER CRUD OPERATIONS =====
+  // User management endpoints
+
+  // Get user profile
+  app.get('/api/auth/profile', async (req, res) => {
+    try {
+      const userId = req.session.userId;
+
+      if (!userId) {
+        return res.status(401).json({
+          error: 'Not authenticated',
+          success: false
+        });
+      }
+
+      const user = await mysqlStorage.getUserById(userId);
+
+      if (!user) {
+        return res.status(404).json({
+          error: 'User not found',
+          success: false
+        });
+      }
+
+      // Remove password from response
+      delete user.password;
+
+      res.json({
+        success: true,
+        user
+      });
+
+    } catch (error) {
+      console.error('Get profile error:', error);
+      res.status(500).json({
+        error: 'Internal server error',
+        success: false
+      });
+    }
+  });
+
+  // Update user profile
+  app.put('/api/auth/profile', async (req, res) => {
+    try {
+      const userId = req.session.userId;
+
+      if (!userId) {
+        return res.status(401).json({
+          error: 'Not authenticated',
+          success: false
+        });
+      }
+
+      const { firstName, lastName, phone, company } = req.body;
+
+      const updateData = {
+        first_name: firstName,
+        last_name: lastName,
+        phone,
+        company
+      };
+
+      const updated = await mysqlStorage.updateUser(userId, updateData);
+
+      if (updated) {
+        res.json({
+          success: true,
+          message: 'Profile updated successfully'
+        });
+      } else {
+        res.status(500).json({
+          error: 'Failed to update profile',
+          success: false
+        });
+      }
+
+    } catch (error) {
+      console.error('Update profile error:', error);
+      res.status(500).json({
+        error: 'Internal server error',
+        success: false
+      });
+    }
+  });
+
+  // Change password
+  app.post('/api/auth/change-password', async (req, res) => {
+    try {
+      const userId = req.session.userId;
+
+      if (!userId) {
+        return res.status(401).json({
+          error: 'Not authenticated',
+          success: false
+        });
+      }
+
+      const { currentPassword, newPassword } = req.body;
+
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({
+          error: 'Current password and new password are required',
+          success: false
+        });
+      }
+
+      // Verify current password
+      const user = await mysqlStorage.getUserById(userId);
+      if (!user) {
+        return res.status(404).json({
+          error: 'User not found',
+          success: false
+        });
+      }
+
+      const bcrypt = require('bcrypt');
+      const isValidPassword = await bcrypt.compare(currentPassword, user.password);
+
+      if (!isValidPassword) {
+        return res.status(400).json({
+          error: 'Current password is incorrect',
+          success: false
+        });
+      }
+
+      // Update password
+      const passwordUpdated = await mysqlStorage.updateUserPassword(userId, newPassword);
+
+      if (passwordUpdated) {
+        res.json({
+          success: true,
+          message: 'Password changed successfully'
+        });
+      } else {
+        res.status(500).json({
+          error: 'Failed to change password',
+          success: false
+        });
+      }
+
+    } catch (error) {
+      console.error('Change password error:', error);
+      res.status(500).json({
+        error: 'Internal server error',
+        success: false
+      });
+    }
+  });
+
+  // Get all users (admin only)
+  app.get('/api/auth/users', async (req, res) => {
+    try {
+      const userId = req.session.userId;
+
+      if (!userId) {
+        return res.status(401).json({
+          error: 'Not authenticated',
+          success: false
+        });
+      }
+
+      // Check if user is admin
+      const isAdmin = await mysqlStorage.isUserInGroup(userId, 'admin');
+      if (!isAdmin) {
+        return res.status(403).json({
+          error: 'Access denied',
+          success: false
+        });
+      }
+
+      const users = await mysqlStorage.getAllUsers();
+
+      res.json({
+        success: true,
+        users
+      });
+
+    } catch (error) {
+      console.error('Get users error:', error);
+      res.status(500).json({
+        error: 'Internal server error',
+        success: false
+      });
+    }
+  });
+
+  // Create user (admin only)
+  app.post('/api/auth/users', async (req, res) => {
+    try {
+      const userId = req.session.userId;
+
+      if (!userId) {
+        return res.status(401).json({
+          error: 'Not authenticated',
+          success: false
+        });
+      }
+
+      // Check if user is admin
+      const isAdmin = await mysqlStorage.isUserInGroup(userId, 'admin');
+      if (!isAdmin) {
+        return res.status(403).json({
+          error: 'Access denied',
+          success: false
+        });
+      }
+
+      const {
+        firstName,
+        lastName,
+        email,
+        username,
+        password,
+        phone,
+        company,
+        groupId,
+        active = 1
+      } = req.body;
+
+      // Validate required fields
+      if (!firstName || !lastName || !email || !username || !password) {
+        return res.status(400).json({
+          error: 'All required fields must be provided',
+          success: false
+        });
+      }
+
+      // Check if user already exists
+      const existingUser = await mysqlStorage.getUserByEmailOrUsername(email, username);
+      if (existingUser) {
+        return res.status(409).json({
+          error: 'User already exists with this email or username',
+          success: false
+        });
+      }
+
+      // Create user
+      const userData = {
+        first_name: firstName,
+        last_name: lastName,
+        email,
+        username,
+        password,
+        phone: phone || null,
+        company: company || null,
+        group_id: groupId || 1,
+        active,
+        created_on: new Date()
+      };
+
+      const newUserId = await mysqlStorage.createUser(userData);
+
+      if (newUserId) {
+        // Add user to default group
+        await mysqlStorage.addUserToGroup(newUserId, 2); // Default user group
+
+        res.json({
+          success: true,
+          message: 'User created successfully',
+          userId: newUserId
+        });
+      } else {
+        res.status(500).json({
+          error: 'Failed to create user',
+          success: false
+        });
+      }
+
+    } catch (error) {
+      console.error('Create user error:', error);
+      res.status(500).json({
+        error: 'Internal server error',
+        success: false
+      });
+    }
+  });
+
+  // First step registration endpoint (matching PHP first_step_register_submit_popup)
+  app.post('/api/auth/first-step-register', async (req, res) => {
+    try {
+      const { first_name, mobile_number, password } = req.body;
+
+      // Validate required fields
+      if (!first_name || !mobile_number || !password) {
+        return res.status(400).json({
+          error: 'All required fields must be provided',
+          success: false
+        });
+      }
+
+      // Check if user already exists
+      const existingUser = await storage.getUserByUsername(mobile_number);
+      if (existingUser) {
+        return res.json({
+          message: 'exits',
+          success: false
+        });
+      }
+
+      // Create user with basic information
+      const newUser = {
+        username: mobile_number,
+        firstName: first_name,
+        lastName: '',
+        email: '',
+        phone: mobile_number,
+        password: password, // Will be hashed in storage.createUser
+        company: 'Individual',
+        role: 'user' as const,
+        displayName: first_name,
+        groupId: 2, // Default user group
+      };
+
+      // Store user in memory (in production, this would be database)
+      const createdUser = await storage.createUser(newUser);
+
+      res.json({
+        success: true,
+        userId: createdUser.id,
+        result: createdUser.id,
+        message: 'First step registration successful'
+      });
+    } catch (error) {
+      console.error('First step registration error:', error);
+      res.status(500).json({
+        error: 'Registration failed',
+        success: false
+      });
+    }
+  });
+
+  // Update registration with complete profile (matching PHP user_update_register_submit_popup)
+  app.post('/api/auth/update-registration', async (req, res) => {
+    try {
+      const {
+        register_user_id,
+        register_username,
+        register_password,
+        display_name,
+        alter_number,
+        email,
+        country_code,
+        gender,
+        marital,
+        from_date,
+        from_month,
+        from_year,
+        country,
+        state,
+        district,
+        nationality,
+        education,
+        profession,
+        education_others,
+        work_others
+      } = req.body;
+
+      // Validate required fields
+      if (!register_user_id || !register_username || !display_name) {
+        return res.status(400).json({
+          error: 'Required fields missing',
+          success: false
+        });
+      }
+
+      // Get existing user
+      const existingUser = await storage.getUserById(register_user_id);
+      if (!existingUser) {
+        return res.status(404).json({
+          error: 'User not found',
+          success: false
+        });
+      }
+
+      // Update user with complete profile
+      const updatedUser = {
+        ...existingUser,
+        email: email || `${register_username}@demo.com`,
+        displayName: display_name,
+        alterNumber: alter_number,
+        isVerified: true,
+        // Additional registration details
+        countryCode: country_code,
+        gender: gender,
+        maritalStatus: marital,
+        dateOfBirth: from_year && from_month && from_date ? `${from_year}-${from_month}-${from_date}` : '',
+        country: country,
+        state: state,
+        district: district,
+        nationality: nationality,
+        education: education === 'education_others' ? education_others : education,
+        profession: profession === 'work_others' ? work_others : profession,
+        updatedAt: new Date().toISOString()
+      };
+
+      // Update user in memory storage
+      await storage.updateUser(register_user_id, updatedUser);
+
+      // Auto-login user (matching PHP behavior)
+      const token = jwt.sign(
+        {
+          userId: register_user_id,
+          username: register_username,
+          role: updatedUser.role
+        },
+        JWT_SECRET,
+        { expiresIn: '24h' }
+      );
+
+      // Set session
+      req.session.user = {
+        id: register_user_id,
+        username: register_username,
+        role: updatedUser.role,
+        token: token
+      };
+
+      res.json({
+        success: true,
+        result: 1,
+        message: 'Registration completed successfully',
+        user: {
+          id: updatedUser.id,
+          username: updatedUser.username,
+          firstName: updatedUser.firstName,
+          email: updatedUser.email,
+          phone: updatedUser.phone,
+          displayName: updatedUser.displayName,
+          isVerified: updatedUser.isVerified
+        },
+        token: token
+      });
+    } catch (error) {
+      console.error('Update registration error:', error);
+      res.status(500).json({
+        error: 'Registration update failed',
+        success: false
+      });
+    }
+  });
+
+  // Simple registration endpoint
+  app.post('/api/auth/register-simple', async (req, res) => {
+    try {
+      const { firstName, lastName, email, username, password, phone, company, role = 'user' } = req.body;
+
+      // Validate required fields
+      if (!firstName || !lastName || !email || !username || !password) {
+        return res.status(400).json({
+          error: 'All required fields must be provided',
+          success: false
+        });
+      }
+
+      // Check if user already exists in memory storage
+      const existingUser = await storage.getUserByUsername(username) || await storage.getUserByEmail(email);
+      if (existingUser) {
+        return res.status(409).json({
+          error: 'User already exists with this email or username',
+          success: false
+        });
+      }
+
+      // Create user in memory storage
+      const newUser = await storage.createUser({
+        username,
+        email,
+        password, // Will be hashed in the storage method
+        firstName,
+        lastName,
+        phone: phone || '',
+        company: company || '',
+        role,
+        isActive: true
+      });
+
+      if (newUser) {
+        res.json({
+          success: true,
+          message: 'User registered successfully',
+          userId: newUser.id
+        });
+      } else {
+        res.status(500).json({
+          error: 'Failed to create user',
+          success: false
+        });
+      }
+
+    } catch (error) {
+      console.error('Registration error:', error);
+      res.status(500).json({
+        error: 'Internal server error',
+        success: false
+      });
+    }
+  });
+
+  // ===== MOBILE HEADER API ROUTES =====
+
+  // Get my groups apps (equivalent to PHP get_my_groups_apps)
+  app.post("/api/mobile/get-my-groups-apps", async (req, res) => {
+    try {
+      const { apps_name = 'My Apps' } = req.body;
+      const apps = await mysqlStorage.getMyGroupsApps(apps_name);
+      res.json(apps);
+    } catch (error) {
+      console.error("Error fetching my groups apps:", error);
+      res.status(500).json({ error: "Failed to fetch my groups apps" });
+    }
+  });
+
+  // Get all mygroups apps (equivalent to PHP get_all_mygroups_apps)
+  app.get("/api/mobile/get-all-mygroups-apps", async (req, res) => {
+    try {
+      const apps = await mysqlStorage.getAllMyGroupsApps();
+      res.json(apps);
+    } catch (error) {
+      console.error("Error fetching all mygroups apps:", error);
+      res.status(500).json({ error: "Failed to fetch all mygroups apps" });
+    }
+  });
+
+  // Get header ads (equivalent to PHP get_header_ads)
+  app.post("/api/mobile/get-header-ads", async (req, res) => {
+    try {
+      const { main_app, sub_app } = req.body;
+      const ads = await mysqlStorage.getHeaderAds(main_app, sub_app);
+      res.json(ads);
+    } catch (error) {
+      console.error("Error fetching header ads:", error);
+      res.status(500).json({ error: "Failed to fetch header ads" });
+    }
+  });
+
+  // Switch dark mode (equivalent to PHP switch_darkmode)
+  app.post("/api/mobile/switch-darkmode", authenticateJWT, async (req: any, res) => {
+    try {
+      const { switch_mode } = req.body;
+      const userId = req.user.id;
+
+      // Store dark mode preference in session or user preferences
+      req.session.darkMode = switch_mode;
+
+      // Optionally store in database for persistence
+      await mysqlStorage.updateUserPreference(userId, 'dark_mode', switch_mode);
+
+      res.json({ success: true, dark_mode: switch_mode });
+    } catch (error) {
+      console.error("Error switching dark mode:", error);
+      res.status(500).json({ error: "Failed to switch dark mode" });
+    }
+  });
+
+  // Get location wise total users (equivalent to PHP get_location_wise_data)
+  app.get("/api/mobile/get-location-wise-data", authenticateJWT, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const locationData = await mysqlStorage.getLocationWiseUserData(userId);
+      res.json(locationData);
+    } catch (error) {
+      console.error("Error fetching location wise data:", error);
+      res.status(500).json({ error: "Failed to fetch location wise data" });
+    }
+  });
+
+  // Edit profile mobile (equivalent to PHP edit_profile_mobile)
+  app.post("/api/mobile/edit-profile", authenticateJWT, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const profileData = await mysqlStorage.getUserProfileForEdit(userId);
+      const countryFlags = await mysqlStorage.getCountryFlags();
+      const education = await mysqlStorage.getEducationList();
+      const profession = await mysqlStorage.getProfessionList();
+
+      res.json({
+        profile: profileData,
+        country_flag: countryFlags,
+        education: education,
+        profession: profession
+      });
+    } catch (error) {
+      console.error("Error fetching profile edit data:", error);
+      res.status(500).json({ error: "Failed to fetch profile edit data" });
+    }
+  });
+
+  // Update user profile
+  app.put("/api/user/profile", authenticateJWT, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const updateData = req.body;
+
+      // Remove sensitive fields that shouldn't be updated via this endpoint
+      const { id, password, salt, activationCode, forgottenPasswordCode, rememberCode, createdOn, lastLogin, ...allowedUpdates } = updateData;
+
+      const updatedUser = await mysqlStorage.updateUser(userId, allowedUpdates);
+
+      if (!updatedUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Remove sensitive information from response
+      const { password: pwd, salt: s, activationCode: ac, forgottenPasswordCode: fpc, rememberCode: rc, ...userProfile } = updatedUser;
+      res.json(userProfile);
+    } catch (error) {
+      console.error("Error updating user profile:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Upload profile image
+  app.post("/api/user/profile/image", authenticateJWT, upload.single('profileImage'), async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const file = req.file;
+
+      if (!file) {
+        return res.status(400).json({ error: "No image file provided" });
+      }
+
+      // Generate unique filename
+      const fileExtension = path.extname(file.originalname);
+      const fileName = `profile_${userId}_${Date.now()}${fileExtension}`;
+      const filePath = path.join(uploadsDir, fileName);
+
+      // Move file to uploads directory
+      await fs.promises.rename(file.path, filePath);
+
+      // Update user profile with new image path
+      const profileImg = `/uploads/${fileName}`;
+      await mysqlStorage.updateUser(userId, { profileImg });
+
+      res.json({ profileImg });
+    } catch (error) {
+      console.error("Error uploading profile image:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
   });
 

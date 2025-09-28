@@ -7,9 +7,11 @@ import bcrypt from "bcryptjs";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
+  getUserById(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(id: string, updates: Partial<User>): Promise<User | undefined>;
   verifyPassword(password: string, hashedPassword: string): Promise<boolean>;
   authenticateUser(username: string, password: string): Promise<User | null>;
 }
@@ -87,6 +89,10 @@ export class MemStorage implements IStorage {
     return this.users.get(id);
   }
 
+  async getUserById(id: string): Promise<User | undefined> {
+    return this.users.get(id);
+  }
+
   async getUserByUsername(username: string): Promise<User | undefined> {
     return Array.from(this.users.values()).find(
       (user) => user.username === username,
@@ -101,11 +107,11 @@ export class MemStorage implements IStorage {
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = randomUUID();
-    
+
     // Hash password before storing
     const saltRounds = 12;
     const hashedPassword = await bcrypt.hash(insertUser.password, saltRounds);
-    
+
     const user: User = {
       id,
       username: insertUser.username,
@@ -121,6 +127,23 @@ export class MemStorage implements IStorage {
     };
     this.users.set(id, user);
     return user;
+  }
+
+  async updateUser(id: string, updates: Partial<User>): Promise<User | undefined> {
+    const existingUser = this.users.get(id);
+    if (!existingUser) {
+      return undefined;
+    }
+
+    const updatedUser = {
+      ...existingUser,
+      ...updates,
+      id: existingUser.id, // Ensure ID cannot be changed
+      updatedAt: new Date()
+    };
+
+    this.users.set(id, updatedUser);
+    return updatedUser;
   }
 
   async verifyPassword(password: string, hashedPassword: string): Promise<boolean> {
